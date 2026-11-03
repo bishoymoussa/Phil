@@ -1,4 +1,4 @@
-"""PhiLLM Gradio Space: results-first summary + Gradio-driven 2D/1D animator."""
+"""PhiLLM Gradio Space: results-first summary + Play via generator (no Timer/JS)."""
 
 from __future__ import annotations
 
@@ -15,8 +15,9 @@ except ModuleNotFoundError:
 
 import json
 import sys
+import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Generator
 
 import gradio as gr
 import numpy as np
@@ -112,7 +113,6 @@ def _blank_image() -> PILImage.Image:
 
 
 def _render_frame(state: dict[str, Any] | None, idx: int) -> PILImage.Image:
-    """Draw one trajectory frame to an RGB image (no client JS)."""
     w, h = 640, 400
     img = np.full((h, w, 3), (7, 18, 24), dtype=np.uint8)
     if not state or not state.get("frames"):
@@ -132,7 +132,6 @@ def _render_frame(state: dict[str, Any] | None, idx: int) -> PILImage.Image:
             y = int((h - 1) - (float(p[1]) - ymin) / (ymax - ymin) * (h - 1))
         return x, y
 
-    # walls
     if walls and len(walls) >= 2:
         if dim == 1:
             for wx in (walls[0], walls[1]):
@@ -148,11 +147,10 @@ def _render_frame(state: dict[str, Any] | None, idx: int) -> PILImage.Image:
             img[y_lo : y_hi + 1, x_lo] = (58, 85, 96)
             img[y_lo : y_hi + 1, x_hi] = (58, 85, 96)
 
-    for o, oid in enumerate(ids):
+    for o, _oid in enumerate(ids):
         color = COLORS[o % len(COLORS)]
         trail = [toxy(frames[k]["p"][o]) for k in range(idx + 1)]
         for a, b in zip(trail, trail[1:]):
-            # crude line
             n = max(abs(b[0] - a[0]), abs(b[1] - a[1]), 1)
             for t in range(n + 1):
                 x = int(a[0] + (b[0] - a[0]) * t / n)
@@ -181,14 +179,7 @@ def _frame_label(state: dict[str, Any] | None, idx: int) -> str:
 def _make_state(result: dict, dim: int, walls) -> dict[str, Any]:
     frames = [{"t": float(s["t"]), "p": s["positions"]} for s in result["trajectory"]]
     ids = [o["id"] for o in result["objects"]]
-    st = {
-        "frames": frames,
-        "ids": ids,
-        "dim": int(dim),
-        "walls": walls,
-        "i": 0,
-        "playing": False,
-    }
+    st = {"frames": frames, "ids": ids, "dim": int(dim), "walls": walls, "i": 0}
     st["bounds"] = _bounds(frames, int(dim), walls)
     return st
 
@@ -199,11 +190,10 @@ def simulate(spec_json: str):
         spec = parse_spec(spec_json)
         result = run(spec, return_trajectory=True)
     except SpecError as e:
-        return empty, None, "—", f"Spec error: {e}", RESULTS_MD, gr.update(value=0, maximum=0), gr.update(active=False), "t=—"
+        return empty, None, "—", f"Spec error: {e}", RESULTS_MD, gr.update(value=0, maximum=0), "t=—"
     except Exception as e:  # noqa: BLE001
-        return empty, None, "—", f"Error: {e}", RESULTS_MD, gr.update(value=0, maximum=0), gr.update(active=False), "t=—"
+        return empty, None, "—", f"Error: {e}", RESULTS_MD, gr.update(value=0, maximum=0), "t=—"
 
-    walls = None
     try:
         walls = json.loads(spec_json).get("walls")
     except Exception:
@@ -220,72 +210,47 @@ def simulate(spec_json: str):
     lines.append("Zero-shot ID acc 8% · OOD axes 0% · LoRA eval pending.")
     status = f"OK · dim={spec.dim} · steps={len(result['trajectory']) - 1} · collisions={result['n_collisions']}"
     n = len(state["frames"])
-    img = _render_frame(state, 0)
     return (
-        img,
+        _render_frame(state, 0),
         state,
         "\n".join(lines),
         status,
         RESULTS_MD,
         gr.update(value=0, maximum=max(0, n - 1)),
-        gr.update(active=False),
         _frame_label(state, 0),
     )
 
 
-def toggle_play(state: dict[str, Any] | None):
+def play_animation(state: dict[str, Any] | None) -> Generator:
+    """Yield successive frames so Gradio streams the animation (Play works without Timer/JS)."""
     if not state or not state.get("frames"):
-        return state, gr.update(active=False)
-    if state.get("playing"):
-        state["playing"] = False
-        return state, gr.update(active=False)
-    if state["i"] >= len(state["frames"]) - 1:
-        state["i"] = 0
-    state["playing"] = True
-    return state, gr.update(active=True)
+        yield _blank_image(), 0, "Run a simulation first."
+        return
+    n = len(state["frames"])
+    start = 0 if state.get("i", 0) >= n - 1 else int(state.get("i", 0))
+    for i in range(start, n):
+        state["i"] = i
+        yield _render_frame(state, i), i, _frame_label(state, i)
+        time.sleep(0.08)
 
 
 def on_reset(state: dict[str, Any] | None):
     if not state or not state.get("frames"):
-        return _blank_image(), state, gr.update(active=False), 0, "t=—"
+        return _blank_image(), state, 0, "t=—"
     state["i"] = 0
-    state["playing"] = False
-    return _render_frame(state, 0), state, gr.update(active=False), 0, _frame_label(state, 0)
+    return _render_frame(state, 0), state, 0, _frame_label(state, 0)
 
 
 def on_scrub(state: dict[str, Any] | None, idx: float):
     if not state or not state.get("frames"):
-        return _blank_image(), state, gr.update(active=False), "t=—"
+        return _blank_image(), state, "t=—"
     state["i"] = int(idx)
-    state["playing"] = False
-    return _render_frame(state, state["i"]), state, gr.update(active=False), _frame_label(state, state["i"])
-
-
-def on_tick(state: dict[str, Any] | None):
-    if not state or not state.get("frames") or not state.get("playing"):
-        i = state.get("i", 0) if state else 0
-        img = _blank_image() if not state else _render_frame(state, i)
-        return img, state, gr.update(active=False), i, _frame_label(state, i)
-    n = len(state["frames"])
-    state["i"] = min(state["i"] + 1, n - 1)
-    done = state["i"] >= n - 1
-    if done:
-        state["playing"] = False
-    return (
-        _render_frame(state, state["i"]),
-        state,
-        gr.update(active=not done),
-        state["i"],
-        _frame_label(state, state["i"]),
-    )
+    return _render_frame(state, state["i"]), state, _frame_label(state, state["i"])
 
 
 def build() -> gr.Blocks:
     examples = _load_example_specs()
-    css = """
-    .gradio-container { max-width: 980px !important; }
-    """
-    with gr.Blocks(title="PhiLLM — results + simulator", css=css) as demo:
+    with gr.Blocks(title="PhiLLM — results + simulator") as demo:
         results_box = gr.Markdown(RESULTS_MD)
         gr.Markdown("## Exact simulator · 2D / 1D animator")
         anim_state = gr.State(None)
@@ -307,7 +272,6 @@ def build() -> gr.Blocks:
                 scrub = gr.Slider(0, 40, value=0, step=1, label="Scrub frame")
                 frame_lbl = gr.Markdown("t=—")
                 nums = gr.Textbox(label="Final state (numbers)", lines=8)
-                timer = gr.Timer(0.08, active=False)
 
         def on_example(name: str):
             for n, body in examples:
@@ -317,20 +281,18 @@ def build() -> gr.Blocks:
 
         example_dd.change(on_example, inputs=[example_dd], outputs=[inp])
 
-        sim_outs = [anim, anim_state, nums, status, results_box, scrub, timer, frame_lbl]
-        btn.click(simulate, inputs=[inp], outputs=sim_outs)
-        demo.load(simulate, inputs=[inp], outputs=sim_outs)
+        outs = [anim, anim_state, nums, status, results_box, scrub, frame_lbl]
+        btn.click(simulate, inputs=[inp], outputs=outs)
+        demo.load(simulate, inputs=[inp], outputs=outs)
 
-        play_btn.click(toggle_play, inputs=[anim_state], outputs=[anim_state, timer])
-        reset_btn.click(on_reset, inputs=[anim_state], outputs=[anim, anim_state, timer, scrub, frame_lbl])
-        # release only — scrub.change would fight the timer while playing
-        scrub.release(on_scrub, inputs=[anim_state, scrub], outputs=[anim, anim_state, timer, frame_lbl])
-        timer.tick(on_tick, inputs=[anim_state], outputs=[anim, anim_state, timer, scrub, frame_lbl])
+        play_btn.click(play_animation, inputs=[anim_state], outputs=[anim, scrub, frame_lbl])
+        reset_btn.click(on_reset, inputs=[anim_state], outputs=[anim, anim_state, scrub, frame_lbl])
+        scrub.release(on_scrub, inputs=[anim_state, scrub], outputs=[anim, anim_state, frame_lbl])
 
-        with gr.Accordion("Raw JSON final state / notes", open=False):
+        with gr.Accordion("Notes", open=False):
             gr.Markdown(
-                "Play/Pause/scrub are Gradio-native (no client JS) so they work on Spaces. "
-                "Model predictions will appear once the LoRA adapter is pushed."
+                "Play streams frames from the server (Gradio generator) — no client JS. "
+                "LoRA predictions appear after the adapter is pushed."
             )
     return demo
 
