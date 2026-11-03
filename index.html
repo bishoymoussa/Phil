@@ -171,9 +171,10 @@
       Zero-shot Qwen3.5-2B mostly <em>cannot</em> predict Newtonian next states:
       <strong style="color:var(--ink)">8% ID accuracy</strong> vs a perfect oracle,
       and <strong style="color:var(--ink)">0% across all four OOD axes</strong>
-      (partial eval, n=50 per split; LoRA still training).
+      (partial eval, n=50). LoRA SFT lifts ID to ~38–40% — still far from the oracle,
+      and OOD remains the open question.
     </p>
-    <div class="status-pill">Results · partial zeroshot · LoRA in flight</div>
+    <div class="status-pill">Results · zeroshot + LoRA ID (partial) · OOD LoRA running</div>
     <p>
       PhiLLM asks whether open-weight LLMs hold a usable internal model of simple point-mass worlds —
       ID vs OOD next-state prediction, linear probes for derived physics, probe-guided teaching,
@@ -204,8 +205,8 @@
       </div>
       <div class="callout">
         <div class="lbl">LoRA ID (post-SFT)</div>
-        <div class="num" style="color:var(--muted)">—</div>
-        <div class="lbl">training ~49% of 500 steps · not evaluated yet</div>
+        <div class="num">~38%</div>
+        <div class="lbl">8k SFT · n=50 partial · MAE ~0.7</div>
       </div>
     </div>
 
@@ -250,11 +251,11 @@
           </tr>
           <tr>
             <td>LoRA SFT Qwen3.5-2B</td>
-            <td class="muted">not yet</td>
-            <td class="muted">—</td>
-            <td class="muted">—</td>
-            <td class="muted">—</td>
-            <td class="muted">adapter training (~41%); eval queued after checkpoint</td>
+            <td class="num">38–40%</td>
+            <td class="num">~0.7</td>
+            <td class="num">~0.07</td>
+            <td class="num">50</td>
+            <td class="muted">partial · adapter on HF · OOD eval running</td>
           </tr>
         </tbody>
       </table>
