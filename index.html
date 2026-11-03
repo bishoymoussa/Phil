@@ -320,22 +320,40 @@
         </thead>
         <tbody>
           <tr>
-            <td>RQ3 selective caller (θ sweep)</td>
-            <td>U<sub>λ</sub> / AUROC</td>
-            <td class="muted">not yet</td>
-            <td class="muted">queued after LoRA + probe harness</td>
+            <td>RQ3 LLM-only (zeroshot)</td>
+            <td>ID accuracy</td>
+            <td class="num">8.0%</td>
+            <td class="muted">partial · n=50 · call_rate=0</td>
           </tr>
           <tr>
-            <td>H2 ridge probes (acc / energy / …)</td>
+            <td>RQ3 always-call oracle</td>
+            <td>ID accuracy / U<sub>0.1</sub></td>
+            <td class="num">100% / 0.90</td>
+            <td class="muted">n=50 · call_rate=1</td>
+          </tr>
+          <tr>
+            <td>RQ3 random caller (rate 0.5)</td>
+            <td>ID accuracy mean±std</td>
+            <td class="num">50.0% ± 1.3%</td>
+            <td class="muted">5 seeds · mixes LLM-only + oracle-call</td>
+          </tr>
+          <tr>
+            <td>RQ3 selective θ-sweep</td>
+            <td>U<sub>λ</sub> / AUROC</td>
+            <td class="muted">pending</td>
+            <td class="muted">needs self-error labels on LoRA dlab</td>
+          </tr>
+          <tr>
+            <td>H2 ridge probes</td>
             <td>R² / selectivity</td>
-            <td class="muted">not yet</td>
-            <td class="muted">needs hidden-state dump base vs LoRA</td>
+            <td class="muted">extracting</td>
+            <td class="muted">base hidden-state dump in flight</td>
           </tr>
           <tr>
             <td>RQ5 weight-space reading</td>
             <td>law ID accuracy</td>
-            <td class="muted">pilot pending</td>
-            <td class="muted">tiny neural sims scaffolded</td>
+            <td class="muted">LLM read running</td>
+            <td class="muted">tiny sims trained (4 laws); Qwen3.5-2B reading</td>
           </tr>
         </tbody>
       </table>
