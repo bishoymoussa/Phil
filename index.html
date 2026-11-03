@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PhiLLM — Physics + LLMs</title>
+  <title>PhiLLM — Can LLMs predict the next physical state?</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
       --bg0: #0b1c24;
@@ -14,6 +14,8 @@
       --ink: #e8f1f4;
       --muted: #9db4bd;
       --accent: #d4a35c;
+      --good: #5cb87a;
+      --bad: #d45c7a;
       --line: rgba(232,241,244,0.12);
     }
     * { box-sizing: border-box; }
@@ -27,125 +29,386 @@
         linear-gradient(180deg, var(--bg0), var(--bg1));
       min-height: 100vh;
     }
-    .wrap { width: min(1040px, 92vw); margin: 0 auto; padding: 3.5rem 0 5rem; }
+    .wrap { width: min(980px, 92vw); margin: 0 auto; padding: 2.8rem 0 4.5rem; }
+    .tag { color: var(--accent); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.8rem; }
     .brand {
       font-family: Fraunces, serif;
-      font-size: clamp(3rem, 8vw, 5.5rem);
+      font-size: clamp(2.8rem, 7vw, 4.6rem);
       line-height: 0.95;
-      margin: 0 0 0.6rem;
+      margin: 0.35rem 0 0.8rem;
       letter-spacing: -0.03em;
     }
-    .tag { color: var(--accent); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.85rem; }
-    h1.lead {
+    .takeaway {
       font-family: Fraunces, serif;
       font-weight: 500;
-      font-size: clamp(1.4rem, 3vw, 2rem);
-      max-width: 20ch;
-      margin: 1.2rem 0 0.8rem;
+      font-size: clamp(1.25rem, 2.6vw, 1.65rem);
+      line-height: 1.35;
+      max-width: 42ch;
+      margin: 0 0 0.85rem;
+      color: var(--ink);
     }
-    p { color: var(--muted); line-height: 1.55; max-width: 62ch; }
-    .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.6rem 0 3rem; }
+    .status-pill {
+      display: inline-block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--bg0);
+      background: var(--accent);
+      padding: 0.22rem 0.55rem;
+      margin-bottom: 1rem;
+    }
+    p { color: var(--muted); line-height: 1.55; max-width: 68ch; margin: 0.4rem 0; }
+    .cta { display: flex; flex-wrap: wrap; gap: 0.65rem; margin: 1.25rem 0 1.8rem; }
     a.btn {
       text-decoration: none; color: var(--bg0); background: var(--accent);
-      padding: 0.7rem 1rem; font-weight: 600; border-radius: 2px;
+      padding: 0.65rem 0.95rem; font-weight: 600; border-radius: 2px;
     }
     a.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
-    section { border-top: 1px solid var(--line); padding: 2rem 0; }
-    section h2 { font-family: Fraunces, serif; margin: 0 0 0.6rem; font-size: 1.5rem; }
-    ul { color: var(--muted); line-height: 1.5; }
-    code { color: var(--accent); }
-    .grid {
+    .callouts {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 0.75rem;
-      margin-top: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.7rem;
+      margin: 1.2rem 0 0.4rem;
     }
-    .grid img {
+    .callout {
+      border: 1px solid var(--line);
+      background: rgba(7, 18, 24, 0.45);
+      padding: 0.85rem 0.9rem;
+    }
+    .callout .num {
+      font-family: Fraunces, serif;
+      font-size: clamp(1.7rem, 4vw, 2.35rem);
+      line-height: 1;
+      color: var(--accent);
+      margin: 0.15rem 0;
+    }
+    .callout .num.bad { color: var(--bad); }
+    .callout .num.good { color: var(--good); }
+    .callout .lbl { font-size: 0.82rem; color: var(--muted); line-height: 1.3; }
+    section { border-top: 1px solid var(--line); padding: 1.7rem 0; }
+    section h2 { font-family: Fraunces, serif; margin: 0 0 0.55rem; font-size: 1.45rem; }
+    .note { font-size: 0.88rem; color: var(--muted); }
+    table.results {
       width: 100%;
-      height: 150px;
-      object-fit: cover;
+      border-collapse: collapse;
+      margin: 0.9rem 0 0.4rem;
+      font-size: 0.95rem;
+    }
+    table.results th, table.results td {
+      text-align: left;
+      padding: 0.55rem 0.5rem;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    table.results th { color: var(--muted); font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    table.results td.num { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink); }
+    table.results td.muted { color: var(--muted); font-weight: 400; font-size: 0.88rem; }
+    .badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      padding: 0.12rem 0.4rem;
+      border: 1px solid var(--line);
+      color: var(--accent);
+      margin-left: 0.35rem;
+      vertical-align: middle;
+    }
+    .badge.partial { color: #e0c28a; border-color: rgba(212,163,92,0.4); }
+    .badge.pending { color: var(--muted); }
+    .vignette {
+      border: 1px solid var(--line);
+      background: rgba(7, 18, 24, 0.5);
+      padding: 1rem 1.1rem;
+      margin-top: 0.7rem;
+    }
+    .vignette h3 {
+      font-family: Fraunces, serif;
+      font-size: 1.05rem;
+      margin: 0 0 0.55rem;
+      font-weight: 500;
+    }
+    .vignette pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: var(--muted);
+      margin: 0.35rem 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .vignette .verdict { color: var(--bad); font-weight: 700; margin-top: 0.55rem; }
+    .gif-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem;
+      margin-top: 0.9rem;
+    }
+    .gif-row figure { margin: 0; }
+    .gif-row img {
+      width: 100%;
+      display: block;
       border: 1px solid var(--line);
       background: #071218;
     }
-    footer { margin-top: 2rem; color: var(--muted); font-size: 0.9rem; }
+    .gif-row figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 0.35rem; }
+    ul { color: var(--muted); line-height: 1.5; padding-left: 1.1rem; }
+    ul strong { color: var(--ink); }
+    code { color: var(--accent); }
+    footer { margin-top: 1.5rem; color: var(--muted); font-size: 0.88rem; }
+    @media (max-width: 560px) {
+      .wrap { padding-top: 2rem; }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="tag">Course project · Northeastern</div>
+    <div class="tag">Course project · Northeastern · Qwen3.5-2B</div>
     <p class="brand">PhiLLM</p>
-    <h1 class="lead">Can language models predict — and understand — the next physical state?</h1>
+    <p class="takeaway">
+      Zero-shot Qwen3.5-2B mostly <em>cannot</em> predict Newtonian next states:
+      <strong style="color:var(--ink)">8% ID accuracy</strong> vs a perfect oracle,
+      and <strong style="color:var(--ink)">0% on magnitude / horizon / object OOD</strong>
+      (partial eval, n=50 per split; LoRA still training).
+    </p>
+    <div class="status-pill">Results · partial zeroshot · LoRA in flight</div>
     <p>
-      PhiLLM (Phil) tests whether open-weight LLMs hold a usable internal model of simple Newtonian worlds.
-      We measure next-state prediction in and out of distribution, probe for derived physical quantities,
-      teach with probe-guided fine-tuning, and ask when an agent should call a simulator.
-      Framing inspired by <a href="https://rikiyat.github.io/blog/weight-space-programming/" style="color:var(--accent)">Weight-Space Programming</a>.
+      PhiLLM asks whether open-weight LLMs hold a usable internal model of simple point-mass worlds —
+      ID vs OOD next-state prediction, linear probes for derived physics, probe-guided teaching,
+      selective simulator calls, and a weight-space reading pilot.
     </p>
     <div class="cta">
-      <a class="btn" href="https://github.com/bishoymoussa/Phil">GitHub</a>
+      <a class="btn" href="https://huggingface.co/spaces/bishoygaloaa/phillm-demo">Live 2D demo</a>
+      <a class="btn ghost" href="https://github.com/bishoymoussa/Phil">GitHub</a>
       <a class="btn ghost" href="https://huggingface.co/datasets/bishoygaloaa/phillm-data">Dataset</a>
-      <a class="btn ghost" href="https://huggingface.co/spaces/bishoygaloaa/phillm-demo">Live demo</a>
-      <a class="btn ghost" href="https://huggingface.co/datasets/bishoygaloaa/phillm-results">Results</a>
+      <a class="btn ghost" href="https://huggingface.co/datasets/bishoygaloaa/phillm-results">Raw metrics</a>
     </div>
 
-    <section>
+    <div class="callouts" aria-label="Key numbers">
+      <div class="callout">
+        <div class="lbl">Oracle ID accuracy</div>
+        <div class="num good">100%</div>
+        <div class="lbl">exact simulator · n=2000</div>
+      </div>
+      <div class="callout">
+        <div class="lbl">Zero-shot ID accuracy</div>
+        <div class="num bad">8%</div>
+        <div class="lbl">Qwen3.5-2B · n=50 · partial</div>
+      </div>
+      <div class="callout">
+        <div class="lbl">OOD axes so far</div>
+        <div class="num bad">0%</div>
+        <div class="lbl">mag · hor · obj · n=50 each</div>
+      </div>
+      <div class="callout">
+        <div class="lbl">LoRA ID (post-SFT)</div>
+        <div class="num" style="color:var(--muted)">—</div>
+        <div class="lbl">training ~41% of 500 steps · not evaluated yet</div>
+      </div>
+    </div>
+
+    <section id="results">
+      <h2>Results <span class="badge partial">partial</span></h2>
+      <p class="note">
+        Numbers below are from committed <code>*.metrics.json</code> on Journey
+        (<code>/mnt/work/galoaa/phillm/preds</code>) and mirrored to
+        <code>bishoygaloaa/phillm-results</code>. Zero-shot uses a 50-example subsample
+        of each split while the full sweep finishes. Cells marked
+        <em>pending</em> are not empty guesses — those runs are still in flight.
+      </p>
+
+      <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.2rem 0 0.2rem;">ID · Base vs Oracle (and LoRA)</h3>
+      <table class="results">
+        <thead>
+          <tr>
+            <th>System</th>
+            <th>Accuracy</th>
+            <th>Pos MAE</th>
+            <th>Vel MAE</th>
+            <th>n</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Oracle (exact sim)</td>
+            <td class="num">100.0%</td>
+            <td class="num">0.00</td>
+            <td class="num">0.00</td>
+            <td class="num">2000</td>
+            <td class="muted">final</td>
+          </tr>
+          <tr>
+            <td>Zero-shot Qwen3.5-2B</td>
+            <td class="num">8.0%</td>
+            <td class="num">13.50</td>
+            <td class="num">42.93</td>
+            <td class="num">50</td>
+            <td class="muted">partial subsample</td>
+          </tr>
+          <tr>
+            <td>LoRA SFT Qwen3.5-2B</td>
+            <td class="muted">not yet</td>
+            <td class="muted">—</td>
+            <td class="muted">—</td>
+            <td class="muted">—</td>
+            <td class="muted">adapter training (~41%); eval queued after checkpoint</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="note">By task (zeroshot ID, n=50): T1 next-state <strong style="color:var(--ink)">0/32 (0%)</strong> · T2 <strong style="color:var(--ink)">0/11 (0%)</strong> · T3 multi-object / collision-ish <strong style="color:var(--ink)">4/7 (57%)</strong>.</p>
+
+      <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.4rem 0 0.2rem;">OOD axes · zero-shot</h3>
+      <table class="results">
+        <thead>
+          <tr>
+            <th>Axis</th>
+            <th>Accuracy</th>
+            <th>Pos MAE</th>
+            <th>Vel MAE</th>
+            <th>n</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>ood_mag</code> (extreme magnitudes)</td>
+            <td class="num">0.0%</td>
+            <td class="num">64.72</td>
+            <td class="num">1.31×10<sup>4</sup></td>
+            <td class="num">50</td>
+            <td class="muted">partial</td>
+          </tr>
+          <tr>
+            <td><code>ood_hor</code> (longer horizon)</td>
+            <td class="num">0.0%</td>
+            <td class="num">38.38</td>
+            <td class="num">17.98</td>
+            <td class="num">50</td>
+            <td class="muted">partial</td>
+          </tr>
+          <tr>
+            <td><code>ood_obj</code> (more objects)</td>
+            <td class="num">0.0%</td>
+            <td class="num">31.85</td>
+            <td class="num">42.96</td>
+            <td class="num">50</td>
+            <td class="muted">partial</td>
+          </tr>
+          <tr>
+            <td><code>ood_col</code> (collision-heavy)</td>
+            <td class="muted">running</td>
+            <td class="muted">—</td>
+            <td class="muted">—</td>
+            <td class="muted">50 target</td>
+            <td class="muted">inference in progress on Journey</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.4rem 0 0.2rem;">Call policy / probes</h3>
+      <table class="results">
+        <thead>
+          <tr>
+            <th>Experiment</th>
+            <th>Metric</th>
+            <th>Value</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>RQ3 selective caller (θ sweep)</td>
+            <td>U<sub>λ</sub> / AUROC</td>
+            <td class="muted">not yet</td>
+            <td class="muted">queued after LoRA + probe harness</td>
+          </tr>
+          <tr>
+            <td>H2 ridge probes (acc / energy / …)</td>
+            <td>R² / selectivity</td>
+            <td class="muted">not yet</td>
+            <td class="muted">needs hidden-state dump base vs LoRA</td>
+          </tr>
+          <tr>
+            <td>RQ5 weight-space reading</td>
+            <td>law ID accuracy</td>
+            <td class="muted">pilot pending</td>
+            <td class="muted">tiny neural sims scaffolded</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="vignette">
+      <h2>One problem, three answers</h2>
+      <p class="note">Figure-style vignette from ID test <code>T1_c93a1731ee56d3d3</code> (zeroshot Qwen3.5-2B).</p>
+      <div class="vignette">
+        <h3>Prompt (abridged)</h3>
+        <pre>Δt = 0.1 s. Predict the state after 3 steps.
+Object o0: mass 1.194 kg, position −0.1574 m,
+velocity −770.3 cm/s, force 12.31 N.
+Return JSON {objects:[{id, position, velocity}]} in SI units.</pre>
+        <h3>Gold (oracle)</h3>
+        <pre>position ≈ [−2.159] m · velocity ≈ [−4.612] m/s</pre>
+        <h3>Model (zeroshot)</h3>
+        <pre>position = −0.1574 · velocity = −77.03
+(kept the initial position; treated cm/s as if already m/s-ish — wrong scale &amp; no Euler step)</pre>
+        <div class="verdict">✗ Incorrect — unit slip + no dynamics → counted wrong under exact match / MAE.</div>
+      </div>
+    </section>
+
+    <section id="methods">
+      <h2>Methods (one paragraph)</h2>
+      <p>
+        Worlds are 1D/2D point masses under constant forces with elastic collisions and optional walls,
+        stepped with fixed-Δt Euler. Each item is a natural-language WorldSpec → JSON next-state target.
+        ID splits cover train/dev/test; OOD axes stretch magnitude, horizon, object count, and collisions.
+        Models: open-weight <code>Qwen/Qwen3.5-2B</code> zero-shot, then LoRA SFT on train (dev-only selection).
+        Probes read hidden states for derived quantities; RQ3 adds a costed <code>&lt;sim&gt;</code> tool policy;
+        RQ5 asks an LLM to name which law a tiny neural simulator encodes from its weights.
+      </p>
+    </section>
+
+    <section id="hypotheses">
       <h2>Hypotheses</h2>
       <ul>
-        <li><strong style="color:var(--ink)">H1 Prediction:</strong> Can an LLM predict full next states ID vs OOD?</li>
-        <li><strong style="color:var(--ink)">H2 Understanding:</strong> Are acceleration / future state / momentum / energy linearly decodable — and teachable via probes?</li>
-        <li><strong style="color:var(--ink)">RQ3:</strong> When should the agent call a physics simulator under an explicit call cost?</li>
-        <li><strong style="color:var(--ink)">RQ5:</strong> Can an LLM read which physical law a tiny neural simulator encodes from its weights?</li>
+        <li><strong>H1 Prediction:</strong> Can the LLM predict full next states ID vs OOD?</li>
+        <li><strong>H2 Understanding:</strong> Are acceleration / future state / momentum / energy linearly decodable — and teachable via probes?</li>
+        <li><strong>RQ3:</strong> When should the agent call a physics simulator under an explicit call cost?</li>
+        <li><strong>RQ5:</strong> Can an LLM read which physical law a tiny neural simulator encodes from its weights?</li>
       </ul>
     </section>
 
-    <section>
-      <h2>Simulation gallery</h2>
-      <p>Exact simulator rollouts from the ID / OOD / inspect splits (hosted on Hugging Face results).</p>
-      <div class="grid" id="gallery"></div>
-      <p style="margin-top:1rem;font-size:0.9rem">Figures: <code>bishoygaloaa/phillm-results</code> → <code>figs/dataset</code></p>
-    </section>
-
-    <section>
-      <h2>Artifacts</h2>
-      <p>
-        Exact simulator + ID/OOD generator · zero-shot size sweep · LoRA / probe-guided adapters ·
-        controlled probes · selective tool-calling agent · weight-space reading pilot.
-        Results mirror from Explorer/Journey scratch to Hugging Face.
-      </p>
-      <p>Main model: <code>Qwen/Qwen3.5-2B</code>.</p>
+    <section id="gallery">
+      <h2>Simulator rollouts</h2>
+      <p>Exact Newtonian trajectories — the “figure” half of the paper. Numbers above are the claim; these are the world.</p>
+      <div class="gif-row">
+        <figure>
+          <img src="gifs/id_simple.gif" alt="Simple ID 1D rollout" />
+          <figcaption>ID · simple 1D motion</figcaption>
+        </figure>
+        <figure>
+          <img src="gifs/id_test.gif" alt="ID test vignette trajectory" />
+          <figcaption>ID · vignette problem dynamics</figcaption>
+        </figure>
+        <figure>
+          <img src="gifs/ood_mag.gif" alt="OOD magnitude rollout" />
+          <figcaption>OOD · extreme magnitudes</figcaption>
+        </figure>
+        <figure>
+          <img src="gifs/inspect_collision.gif" alt="Collision inspect rollout" />
+          <figcaption>Inspect · elastic collision</figcaption>
+        </figure>
+      </div>
     </section>
 
     <footer>
       Bishoy Galoaa · Jonathan Sullivan · Yunhua Luo · 2026
+      · Metrics snapshot refreshed from Journey preds ·
+      <a href="https://bishoymoussa.github.io/Phil/" style="color:var(--accent)">bishoymoussa.github.io/Phil</a>
     </footer>
   </div>
-  <script>
-    // Prefer locally committed thumbs when present on gh-pages; else HF URLs
-    const names = [
-      "inspect_0", "inspect_1", "test_0", "test_1",
-      "ood_mag_0", "ood_col_0", "ood_hor_0", "ood_obj_0"
-    ];
-    const g = document.getElementById("gallery");
-    // Use HF dataset file URLs (public)
-    const base = "https://huggingface.co/datasets/bishoygaloaa/phillm-results/resolve/main/figs/dataset/";
-    fetch("https://huggingface.co/api/datasets/bishoygaloaa/phillm-results/tree/main/figs/dataset")
-      .then(r => r.json())
-      .then(files => {
-        (files || []).filter(f => f.path && f.path.endsWith(".png")).slice(0, 12).forEach(f => {
-          const img = document.createElement("img");
-          img.src = "https://huggingface.co/datasets/bishoygaloaa/phillm-results/resolve/main/" + f.path;
-          img.alt = f.path;
-          g.appendChild(img);
-        });
-      })
-      .catch(() => {
-        names.forEach(n => {
-          const img = document.createElement("img");
-          img.src = base + n + ".png";
-          img.alt = n;
-          g.appendChild(img);
-        });
-      });
-  </script>
 </body>
 </html>
