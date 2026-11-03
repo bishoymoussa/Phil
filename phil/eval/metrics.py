@@ -71,6 +71,12 @@ def parse_t1_answer(raw: Any) -> dict[str, Any] | None:
     return None
 
 
+def _as_1d_list(x: Any) -> list[float]:
+    """Normalize scalars / nested lists to a flat float list."""
+    arr = np.asarray(x, dtype=float).reshape(-1)
+    return arr.tolist()
+
+
 def t1_mae(pred: dict[str, Any] | None, gold: dict[str, Any]) -> dict[str, float]:
     if pred is None or "objects" not in pred:
         return {"pos_mae": float("nan"), "vel_mae": float("nan"), "ok": 0.0}
@@ -82,10 +88,10 @@ def t1_mae(pred: dict[str, Any] | None, gold: dict[str, Any]) -> dict[str, float
         if g is None:
             continue
         try:
-            p = np.asarray(o["position"], dtype=float)
-            gp = np.asarray(g["position"], dtype=float)
-            v = np.asarray(o["velocity"], dtype=float)
-            gv = np.asarray(g["velocity"], dtype=float)
+            p = np.asarray(_as_1d_list(o["position"]), dtype=float)
+            gp = np.asarray(_as_1d_list(g["position"]), dtype=float)
+            v = np.asarray(_as_1d_list(o["velocity"]), dtype=float)
+            gv = np.asarray(_as_1d_list(g["velocity"]), dtype=float)
         except (KeyError, TypeError, ValueError):
             continue
         if p.shape != gp.shape or v.shape != gv.shape:
@@ -112,16 +118,18 @@ def t1_tolerance_correct(pred: dict[str, Any] | None, gold: dict[str, Any], tol:
         if g is None:
             return False
         try:
-            p = np.asarray(o["position"], dtype=float)
-            gp = np.asarray(g["position"], dtype=float)
-            v = np.asarray(o["velocity"], dtype=float)
-            gv = np.asarray(g["velocity"], dtype=float)
+            p = _as_1d_list(o["position"])
+            gp = _as_1d_list(g["position"])
+            v = _as_1d_list(o["velocity"])
+            gv = _as_1d_list(g["velocity"])
         except (KeyError, TypeError, ValueError):
             return False
-        for a, b in zip(p.tolist(), gp.tolist()):
+        if len(p) != len(gp) or len(v) != len(gv):
+            return False
+        for a, b in zip(p, gp):
             if relative_error(a, b) > tol and abs(a - b) > 1e-3:
                 return False
-        for a, b in zip(v.tolist(), gv.tolist()):
+        for a, b in zip(v, gv):
             if relative_error(a, b) > tol and abs(a - b) > 1e-3:
                 return False
     return True

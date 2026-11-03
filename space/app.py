@@ -144,6 +144,10 @@ Compare placeholders for **base** vs **LoRA** until GPU model serving is enabled
         example_dd.change(on_example, inputs=[example_dd], outputs=[inp])
         btn.click(simulate_and_plot, inputs=[inp], outputs=[plot, sim_out, base_out, lora_out, status])
 
+        gr.Markdown("## Result snapshots")
+        res = sorted(str(p) for p in (SPACE_ROOT / "results_figs").glob("*.png"))
+        if res:
+            gr.Gallery(value=res, label="Oracle / metrics figures", columns=3, height=280)
         gr.Markdown("## Dataset gallery")
         imgs = gallery_images()
         if imgs:

@@ -48,13 +48,15 @@ def score_example(gold: dict[str, Any], pred_row: dict[str, Any], tol: float = 0
         out["phys_violation"] = physical_violation_elastic(parsed, gold["gold_spec"])
         # aggregate relative error on positions
         if parsed and mae["ok"]:
+            from phil.eval.metrics import _as_1d_list
+
             errs = []
             gmap = {o["id"]: o for o in gold["gold_answer"]["objects"]}
             for o in parsed.get("objects", []):
                 g = gmap.get(o["id"])
                 if not g:
                     continue
-                for a, b in zip(o["position"], g["position"]):
+                for a, b in zip(_as_1d_list(o["position"]), _as_1d_list(g["position"])):
                     errs.append(relative_error(float(a), float(b)))
             out["rel_err"] = float(np.mean(errs)) if errs else None
     elif task == "T2":
