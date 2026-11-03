@@ -62,7 +62,7 @@ RESULTS_MD = """
 | `ood_obj` | **0%** | 31.8 | partial |
 | `ood_col` | **0%** | 29.8 | partial |
 
-Call-policy / probe numbers: **not yet** (queued after LoRA + hidden-state dump).
+**RQ3:** LLM-only **8%** · always-call oracle **100%** (U₀.₁=0.90) · random@0.5 **50%±1.3%**. Probes/weight-read in flight; LoRA ~59%.
 
 [Paper site](https://bishoymoussa.github.io/Phil/) ·
 [GitHub](https://github.com/bishoymoussa/Phil) ·
