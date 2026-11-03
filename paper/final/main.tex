@@ -1,0 +1,29 @@
+\documentclass{article}
+\usepackage[final]{neurips_2024}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref,booktabs,amsmath}
+
+\title{PhiLLM: Predicting and Probing Physical World Models in LLMs}
+\author{Bishoy Galoaa \and Jonathan Sullivan \and Yunhua Luo \\ Northeastern University}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+Inspired by weight-space programming, we ask whether LLMs encode usable Newtonian dynamics.
+We release an exact simulator, ID/OOD benchmarks, LoRA and probe-guided adapters, controlled probes, a selective simulator-call agent, and a tiny-network weight-reading pilot.
+Code and artifacts: \url{https://github.com/bishoymoussa/Phil}.
+\end{abstract}
+
+\section{Introduction}
+% filled from midterm + final metrics.json
+
+\section{Method}
+Simulator, tasks T1--T3, LoRA / probe-guided SFT, Hewitt--Liang controls, call policy, weight reading.
+
+\section{Experiments}
+Tables from \texttt{bishoygaloaa/phillm-results}.
+
+\section{Conclusion}
+Positive or null results on H1/H2 are both informative for physically grounded agents.
+
+\end{document}

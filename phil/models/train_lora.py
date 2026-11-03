@@ -87,74 +87,45 @@ def train(
     eval_ds = build_text_dataset(dev_path, tokenizer, limit=limit_dev)
 
     use_bf16 = dtype == torch.bfloat16
-    # Prefer modern SFTConfig; fall back to TrainingArguments kwargs
-    try:
-        from trl import SFTConfig
+    from trl import SFTConfig
 
-        args = SFTConfig(
-            output_dir=out_dir,
-            num_train_epochs=epochs,
-            per_device_train_batch_size=batch_size,
-            per_device_eval_batch_size=batch_size,
-            gradient_accumulation_steps=grad_accum,
-            learning_rate=lr,
-            logging_steps=10,
-            eval_strategy="steps",
-            eval_steps=200,
-            save_strategy="steps",
-            save_steps=200,
-            save_total_limit=3,
-            load_best_model_at_end=True,
-            metric_for_best_model="eval_loss",
-            greater_is_better=False,
-            bf16=use_bf16,
-            fp16=not use_bf16 and torch.cuda.is_available(),
-            max_seq_length=max_seq_len,
-            seed=seed,
-            report_to=[],
-            dataset_text_field="text",
-            packing=False,
-        )
-        trainer = SFTTrainer(
-            model=model,
-            args=args,
-            train_dataset=train_ds,
-            eval_dataset=eval_ds,
-            processing_class=tokenizer,
-            peft_config=peft_config,
-        )
+    # transformers>=4.46 / trl>=0.16: max_length + eval_strategy
+    args = SFTConfig(
+        output_dir=out_dir,
+        num_train_epochs=epochs,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
+        gradient_accumulation_steps=grad_accum,
+        learning_rate=lr,
+        logging_steps=10,
+        eval_strategy="steps",
+        eval_steps=200,
+        save_strategy="steps",
+        save_steps=200,
+        save_total_limit=3,
+        load_best_model_at_end=True,
+        metric_for_best_model="eval_loss",
+        greater_is_better=False,
+        bf16=use_bf16,
+        fp16=not use_bf16 and torch.cuda.is_available(),
+        max_length=max_seq_len,
+        seed=seed,
+        report_to=[],
+        dataset_text_field="text",
+        packing=False,
+    )
+    trainer_kwargs = dict(
+        model=model,
+        args=args,
+        train_dataset=train_ds,
+        eval_dataset=eval_ds,
+        peft_config=peft_config,
+    )
+    # processing_class (new) vs tokenizer (old)
+    try:
+        trainer = SFTTrainer(**trainer_kwargs, processing_class=tokenizer)
     except TypeError:
-        targs = TrainingArguments(
-            output_dir=out_dir,
-            num_train_epochs=epochs,
-            per_device_train_batch_size=batch_size,
-            per_device_eval_batch_size=batch_size,
-            gradient_accumulation_steps=grad_accum,
-            learning_rate=lr,
-            logging_steps=10,
-            evaluation_strategy="steps",
-            eval_steps=200,
-            save_strategy="steps",
-            save_steps=200,
-            save_total_limit=3,
-            load_best_model_at_end=True,
-            metric_for_best_model="eval_loss",
-            greater_is_better=False,
-            bf16=use_bf16,
-            fp16=not use_bf16 and torch.cuda.is_available(),
-            seed=seed,
-            report_to=[],
-        )
-        trainer = SFTTrainer(
-            model=model,
-            args=targs,
-            train_dataset=train_ds,
-            eval_dataset=eval_ds,
-            tokenizer=tokenizer,
-            peft_config=peft_config,
-            dataset_text_field="text",
-            max_seq_length=max_seq_len,
-        )
+        trainer = SFTTrainer(**trainer_kwargs, tokenizer=tokenizer)
 
     train_result = trainer.train()
     trainer.save_model(out_dir)
