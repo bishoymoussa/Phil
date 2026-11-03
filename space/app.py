@@ -46,21 +46,21 @@ RESULTS_MD = """
 # PhiLLM — Physics + LLMs
 
 **Takeaway:** Zero-shot **Qwen3.5-2B** mostly **cannot** predict Newtonian next states —
-**8% ID accuracy** vs a **100% oracle**, and **0%** on magnitude / horizon / object OOD
+**8% ID accuracy** vs a **100% oracle**, and **0%** on all four OOD axes
 (partial eval, n=50; LoRA still training).
 
 | System | ID acc | Pos MAE | Status |
 |--------|--------|---------|--------|
 | Oracle | **100%** | 0.00 | final · n=2000 |
 | Zero-shot 2B | **8%** | 13.50 | partial · n=50 |
-| LoRA SFT | *pending* | — | ~41% through training |
+| LoRA SFT | *pending* | — | ~49% through training |
 
 | OOD axis | Acc | Pos MAE | Status |
 |----------|-----|---------|--------|
 | `ood_mag` | **0%** | 64.7 | partial |
 | `ood_hor` | **0%** | 38.4 | partial |
 | `ood_obj` | **0%** | 31.8 | partial |
-| `ood_col` | *running* | — | inference in flight |
+| `ood_col` | **0%** | 29.8 | partial |
 
 Call-policy / probe numbers: **not yet** (queued after LoRA + hidden-state dump).
 

@@ -170,7 +170,7 @@
     <p class="takeaway">
       Zero-shot Qwen3.5-2B mostly <em>cannot</em> predict Newtonian next states:
       <strong style="color:var(--ink)">8% ID accuracy</strong> vs a perfect oracle,
-      and <strong style="color:var(--ink)">0% on magnitude / horizon / object OOD</strong>
+      and <strong style="color:var(--ink)">0% across all four OOD axes</strong>
       (partial eval, n=50 per split; LoRA still training).
     </p>
     <div class="status-pill">Results · partial zeroshot · LoRA in flight</div>
@@ -198,14 +198,14 @@
         <div class="lbl">Qwen3.5-2B · n=50 · partial</div>
       </div>
       <div class="callout">
-        <div class="lbl">OOD axes so far</div>
+        <div class="lbl">All OOD axes</div>
         <div class="num bad">0%</div>
-        <div class="lbl">mag · hor · obj · n=50 each</div>
+        <div class="lbl">mag · hor · obj · col · n=50 each</div>
       </div>
       <div class="callout">
         <div class="lbl">LoRA ID (post-SFT)</div>
         <div class="num" style="color:var(--muted)">—</div>
-        <div class="lbl">training ~41% of 500 steps · not evaluated yet</div>
+        <div class="lbl">training ~49% of 500 steps · not evaluated yet</div>
       </div>
     </div>
 
@@ -299,11 +299,11 @@
           </tr>
           <tr>
             <td><code>ood_col</code> (collision-heavy)</td>
-            <td class="muted">running</td>
-            <td class="muted">—</td>
-            <td class="muted">—</td>
-            <td class="muted">50 target</td>
-            <td class="muted">inference in progress on Journey</td>
+            <td class="num">0.0%</td>
+            <td class="num">29.76</td>
+            <td class="num">57.15</td>
+            <td class="num">50</td>
+            <td class="muted">partial</td>
           </tr>
         </tbody>
       </table>
