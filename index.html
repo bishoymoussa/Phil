@@ -193,7 +193,7 @@
       Probes: LoRA raises derived R² (momentum 0.19→0.56, v<sub>k</sub> 0.23→0.51) —
       ID physics is more linearly readable, still not OOD-transferable (n=50/200).
     </p>
-    <div class="status-pill">Results · zeroshot + LoRA ID/OOD · base vs LoRA probes</div>
+    <div class="status-pill">Results · LoRA ID/OOD · probes · RQ3 selective U₀.₁=0.55</div>
     <p>
       PhiLLM asks whether open-weight LLMs hold a usable internal model of simple point-mass worlds —
       ID vs OOD next-state prediction, linear probes for derived physics, probe-guided teaching,
@@ -359,10 +359,10 @@
             <td class="muted">5 seeds · mixes LLM-only + oracle-call</td>
           </tr>
           <tr>
-            <td>RQ3 selective θ-sweep</td>
-            <td>U<sub>λ</sub> / AUROC</td>
-            <td class="muted">pending</td>
-            <td class="muted">needs self-error labels on LoRA dlab</td>
+            <td>RQ3 selective θ (p&lt;sim&gt;)</td>
+            <td>best U<sub>0.1</sub> / acc / call</td>
+            <td class="num">0.55 / 58% / 26%</td>
+            <td class="muted">n=50 · vs LoRA-only 38% · AUROC weak (p_sim≈0)</td>
           </tr>
           <tr>
             <td>H2 ridge probes base→LoRA</td>
