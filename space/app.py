@@ -1,31 +1,25 @@
-"""PhiLLM Gradio Space: WorldSpec editor, simulator trajectories, base/LoRA placeholders."""
+"""PhiLLM Gradio Space: results-first summary + HTML5 2D/1D animator."""
 
 from __future__ import annotations
 
-# Python 3.13 removed stdlib audioop; Gradio/pydub may need a shim.
 try:
     import audioop  # noqa: F401
 except ModuleNotFoundError:
     try:
         import audioop_lts as audioop  # type: ignore
-        import sys
-        sys.modules["audioop"] = audioop
+        import sys as _sys
+
+        _sys.modules["audioop"] = audioop
     except Exception:
         pass
 
+import html
 import json
-import os
 import sys
 from pathlib import Path
 
 import gradio as gr
-import matplotlib
 
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
-
-# Self-contained: vendored phil.sim lives next to this file
 SPACE_ROOT = Path(__file__).resolve().parent
 if str(SPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(SPACE_ROOT))
@@ -33,118 +27,257 @@ if str(SPACE_ROOT) not in sys.path:
 from phil.sim.simulator import run  # noqa: E402
 from phil.sim.spec import SpecError, parse_spec  # noqa: E402
 
-
 DEMO_SPEC = {
-    "dim": 1,
-    "dt": 0.1,
-    "horizon": 8,
+    "dim": 2,
+    "dt": 0.05,
+    "horizon": 40,
     "objects": [
-        {"id": "o0", "mass": 2.0, "position": [-1.0], "velocity": [1.5], "force": [0.0]},
-        {"id": "o1", "mass": 1.0, "position": [1.5], "velocity": [-1.0], "force": [0.0]},
+        {"id": "o0", "mass": 2.0, "position": [-2.0, 0.5], "velocity": [1.8, 0.2], "force": [0.0, -1.2]},
+        {"id": "o1", "mass": 1.0, "position": [2.2, -0.3], "velocity": [-1.4, 0.6], "force": [0.0, -1.2]},
     ],
     "collisions": True,
-    "walls": [-8.0, 8.0],
+    "walls": [-4.0, 4.0, -3.0, 3.0],
 }
 
-GALLERY_DIR = SPACE_ROOT / "gallery"
 EXAMPLES_DIR = SPACE_ROOT / "examples"
+
+# Embedded snapshot — keep in sync with docs/RESULTS.md / preds/*.metrics.json
+RESULTS_MD = """
+# PhiLLM — Physics + LLMs
+
+**Takeaway:** Zero-shot **Qwen3.5-2B** mostly **cannot** predict Newtonian next states —
+**8% ID accuracy** vs a **100% oracle**, and **0%** on magnitude / horizon / object OOD
+(partial eval, n=50; LoRA still training).
+
+| System | ID acc | Pos MAE | Status |
+|--------|--------|---------|--------|
+| Oracle | **100%** | 0.00 | final · n=2000 |
+| Zero-shot 2B | **8%** | 13.50 | partial · n=50 |
+| LoRA SFT | *pending* | — | ~41% through training |
+
+| OOD axis | Acc | Pos MAE | Status |
+|----------|-----|---------|--------|
+| `ood_mag` | **0%** | 64.7 | partial |
+| `ood_hor` | **0%** | 38.4 | partial |
+| `ood_obj` | **0%** | 31.8 | partial |
+| `ood_col` | *running* | — | inference in flight |
+
+Call-policy / probe numbers: **not yet** (queued after LoRA + hidden-state dump).
+
+[Paper site](https://bishoymoussa.github.io/Phil/) ·
+[GitHub](https://github.com/bishoymoussa/Phil) ·
+[Dataset](https://huggingface.co/datasets/bishoygaloaa/phillm-data) ·
+[Raw metrics](https://huggingface.co/datasets/bishoygaloaa/phillm-results)
+"""
 
 
 def _load_example_specs() -> list[tuple[str, str]]:
-    out = [("Demo collision (1D)", json.dumps(DEMO_SPEC, indent=2))]
+    out = [("Demo collision (2D)", json.dumps(DEMO_SPEC, indent=2))]
     if EXAMPLES_DIR.exists():
         for p in sorted(EXAMPLES_DIR.glob("*.json"))[:12]:
             out.append((p.stem, p.read_text(encoding="utf-8")))
     return out
 
 
-def simulate_and_plot(spec_json: str):
+def _animator_html(traj: list, objects: list, dim: int, walls) -> str:
+    """Self-contained HTML5 canvas animator (primary viz)."""
+    payload = {
+        "dim": dim,
+        "walls": walls,
+        "ids": [o["id"] for o in objects],
+        "frames": [
+            {
+                "t": s["t"],
+                "p": s["positions"],
+            }
+            for s in traj
+        ],
+    }
+    data = json.dumps(payload)
+    # Escape for embedding inside a script? Use JSON in data attribute instead.
+    safe = html.escape(data, quote=True)
+    return f"""
+<div class="phil-anim" data-traj="{safe}" style="font-family:Source Sans 3,system-ui,sans-serif;color:#e8f1f4;">
+  <canvas width="640" height="400" style="width:100%;max-width:640px;background:#071218;border:1px solid rgba(232,241,244,0.12);display:block;"></canvas>
+  <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+    <button type="button" class="phil-play" style="background:#d4a35c;color:#0b1c24;border:0;padding:6px 12px;font-weight:700;cursor:pointer;">Play</button>
+    <button type="button" class="phil-reset" style="background:transparent;color:#e8f1f4;border:1px solid rgba(232,241,244,0.2);padding:6px 12px;cursor:pointer;">Reset</button>
+    <input type="range" class="phil-scrub" min="0" max="0" value="0" style="flex:1;min-width:120px;" />
+    <span class="phil-label" style="color:#9db4bd;font-size:0.9rem;">t=0</span>
+  </div>
+</div>
+<script>
+(function() {{
+  const roots = document.querySelectorAll('.phil-anim');
+  const root = roots[roots.length - 1];
+  if (!root || root.dataset.bound) return;
+  root.dataset.bound = '1';
+  const data = JSON.parse(root.getAttribute('data-traj'));
+  const canvas = root.querySelector('canvas');
+  const ctx = canvas.getContext('2d');
+  const playBtn = root.querySelector('.phil-play');
+  const resetBtn = root.querySelector('.phil-reset');
+  const scrub = root.querySelector('.phil-scrub');
+  const label = root.querySelector('.phil-label');
+  const colors = ['#d4a35c','#5cb8d4','#d45c7a','#7ad45c','#c9a0ff'];
+  scrub.max = Math.max(0, data.frames.length - 1);
+  let i = 0, playing = false, timer = null;
+
+  function bounds() {{
+    let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+    for (const f of data.frames) {{
+      for (const p of f.p) {{
+        xmin=Math.min(xmin,p[0]); xmax=Math.max(xmax,p[0]);
+        if (data.dim===1) {{ ymin=Math.min(ymin,-1); ymax=Math.max(ymax,1); }}
+        else {{ ymin=Math.min(ymin,p[1]); ymax=Math.max(ymax,p[1]); }}
+      }}
+    }}
+    if (data.walls && data.walls.length>=2) {{
+      xmin=Math.min(xmin,data.walls[0]); xmax=Math.max(xmax,data.walls[1]);
+      if (data.dim===2 && data.walls.length>=4) {{
+        ymin=Math.min(ymin,data.walls[2]); ymax=Math.max(ymax,data.walls[3]);
+      }}
+    }}
+    const padx=(xmax-xmin||1)*0.12, pady=(ymax-ymin||1)*0.12;
+    return [xmin-padx,xmax+padx,ymin-pady,ymax+pady];
+  }}
+  const B = bounds();
+  function toxy(p) {{
+    const x = (p[0]-B[0])/(B[1]-B[0]) * canvas.width;
+    if (data.dim===1) {{
+      const y = canvas.height*0.5;
+      return [x,y];
+    }}
+    const y = canvas.height - (p[1]-B[2])/(B[3]-B[2]) * canvas.height;
+    return [x,y];
+  }}
+  function draw(frameIdx) {{
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle='#071218'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    if (data.walls) {{
+      ctx.strokeStyle='#3a5560'; ctx.setLineDash([6,4]); ctx.lineWidth=1;
+      if (data.dim===1) {{
+        const [x0]=toxy([data.walls[0],0]); const [x1]=toxy([data.walls[1],0]);
+        ctx.beginPath(); ctx.moveTo(x0,20); ctx.lineTo(x0,canvas.height-20); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x1,20); ctx.lineTo(x1,canvas.height-20); ctx.stroke();
+      }} else if (data.walls.length>=4) {{
+        const a=toxy([data.walls[0],data.walls[2]]);
+        const b=toxy([data.walls[1],data.walls[3]]);
+        ctx.strokeRect(a[0],b[1],b[0]-a[0],a[1]-b[1]);
+      }}
+      ctx.setLineDash([]);
+    }}
+    for (let o=0; o<data.ids.length; o++) {{
+      ctx.strokeStyle=colors[o%colors.length]; ctx.fillStyle=colors[o%colors.length];
+      ctx.lineWidth=2; ctx.beginPath();
+      for (let k=0; k<=frameIdx; k++) {{
+        const [x,y]=toxy(data.frames[k].p[o]);
+        if (k===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      }}
+      ctx.stroke();
+      const [cx,cy]=toxy(data.frames[frameIdx].p[o]);
+      ctx.beginPath(); ctx.arc(cx,cy,7,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#9db4bd'; ctx.font='12px sans-serif';
+      ctx.fillText(data.ids[o], cx+10, cy-8);
+      ctx.fillStyle=colors[o%colors.length];
+    }}
+    label.textContent = 't=' + data.frames[frameIdx].t.toFixed(3) + 's · frame ' + frameIdx + '/' + (data.frames.length-1);
+    scrub.value = frameIdx;
+  }}
+  function stop() {{ playing=false; playBtn.textContent='Play'; if (timer) {{ clearInterval(timer); timer=null; }} }}
+  function start() {{
+    if (playing) return; playing=true; playBtn.textContent='Pause';
+    timer=setInterval(()=>{{
+      i = Math.min(i+1, data.frames.length-1);
+      draw(i);
+      if (i >= data.frames.length-1) stop();
+    }}, 80);
+  }}
+  playBtn.onclick = ()=> playing ? stop() : start();
+  resetBtn.onclick = ()=>{{ stop(); i=0; draw(0); }};
+  scrub.oninput = ()=>{{ stop(); i=+scrub.value; draw(i); }};
+  draw(0);
+}})();
+</script>
+"""
+
+
+def simulate(spec_json: str):
     try:
         spec = parse_spec(spec_json)
         result = run(spec, return_trajectory=True)
     except SpecError as e:
-        return None, f"Spec error: {e}", "—", "—", "—"
+        return (
+            f"<p style='color:#d45c7a'>Spec error: {html.escape(str(e))}</p>",
+            "—",
+            "Spec error — see animator panel.",
+            RESULTS_MD,
+        )
     except Exception as e:  # noqa: BLE001
-        return None, f"Error: {e}", "—", "—", "—"
+        return (
+            f"<p style='color:#d45c7a'>Error: {html.escape(str(e))}</p>",
+            "—",
+            f"Error: {e}",
+            RESULTS_MD,
+        )
 
-    traj = result["trajectory"]
-    t = np.array([s["t"] for s in traj])
-    fig, ax = plt.subplots(figsize=(7, 3.8))
-    if spec.dim == 1:
-        for i, oid in enumerate(result["objects"]):
-            xs = [s["positions"][i][0] for s in traj]
-            ax.plot(t, xs, marker="o", ms=3, label=f"{oid['id']} position")
-        ax.set_xlabel("t (s)")
-        ax.set_ylabel("x (m)")
-    else:
-        for i, oid in enumerate(result["objects"]):
-            xs = [s["positions"][i][0] for s in traj]
-            ys = [s["positions"][i][1] for s in traj]
-            ax.plot(xs, ys, marker="o", ms=3, label=oid["id"])
-        ax.set_xlabel("x (m)")
-        ax.set_ylabel("y (m)")
-        ax.set_aspect("equal", adjustable="datalim")
-    ax.legend(fontsize=8)
-    ax.grid(True, alpha=0.3)
-    ax.set_title("Exact simulator trajectory")
-    fig.tight_layout()
+    anim = _animator_html(
+        result["trajectory"],
+        result["objects"],
+        spec.dim,
+        getattr(spec, "walls", None) or (result.get("walls")),
+    )
+    # Prefer walls from original JSON if present
+    try:
+        raw = json.loads(spec_json)
+        walls = raw.get("walls")
+        if walls is not None:
+            anim = _animator_html(result["trajectory"], result["objects"], spec.dim, walls)
+    except Exception:
+        pass
 
     final = {
+        "t": result["t"],
+        "n_collisions": result["n_collisions"],
         "objects": [
             {"id": o["id"], "position": o["position"], "velocity": o["velocity"]}
             for o in result["objects"]
         ],
-        "t": result["t"],
-        "n_collisions": result["n_collisions"],
     }
-    sim_txt = json.dumps(final, indent=2)
-    base_txt = (
-        "[base placeholder] Load Qwen3.5-2B on a GPU Space to compare. "
-        "Until then, use the exact simulator as ground truth."
-    )
-    lora_txt = (
-        "[LoRA placeholder] Adapter: bishoygaloaa/phillm-qwen3.5-2b-lora. "
-        "Wire PEFT inference when GPU quota is available."
-    )
-    return fig, sim_txt, base_txt, lora_txt, f"OK · collisions={result['n_collisions']} · t={result['t']:.3f}"
-
-
-def gallery_images():
-    if not GALLERY_DIR.exists():
-        return []
-    return sorted(str(p) for p in GALLERY_DIR.glob("*.png"))[:24]
+    # Compact numeric readout (not a wall of JSON)
+    lines = [f"t = {result['t']:.4f} s · collisions = {result['n_collisions']}"]
+    for o in result["objects"]:
+        pos = ", ".join(f"{x:.4f}" for x in o["position"])
+        vel = ", ".join(f"{v:.4f}" for v in o["velocity"])
+        lines.append(f"{o['id']}:  x=[{pos}]   v=[{vel}]")
+    lines.append("")
+    lines.append("Base / LoRA LLM compare: adapters still training — oracle above is ground truth.")
+    lines.append("Zero-shot ID acc 8% · OOD mag/hor/obj 0% · LoRA eval pending.")
+    status = f"OK · dim={spec.dim} · steps={len(result['trajectory'])-1} · collisions={result['n_collisions']}"
+    return anim, "\n".join(lines), status, RESULTS_MD
 
 
 def build() -> gr.Blocks:
     examples = _load_example_specs()
-    with gr.Blocks(title="PhiLLM demo") as demo:
-        gr.Markdown(
-            """
-# PhiLLM — Physics + LLMs
-Paste a **WorldSpec** JSON, run the exact Newtonian simulator, and inspect trajectories.
-Compare placeholders for **base** vs **LoRA** until GPU model serving is enabled.
-
-[GitHub](https://github.com/bishoymoussa/Phil) ·
-[Dataset](https://huggingface.co/datasets/bishoygaloaa/phillm-data) ·
-[Results](https://huggingface.co/datasets/bishoygaloaa/phillm-results)
-"""
-        )
+    css = """
+    .gradio-container { max-width: 980px !important; }
+    """
+    with gr.Blocks(title="PhiLLM — results + simulator", css=css) as demo:
+        results_box = gr.Markdown(RESULTS_MD)
+        gr.Markdown("## Exact simulator · 2D / 1D animator")
         with gr.Row():
             with gr.Column(scale=1):
                 example_dd = gr.Dropdown(
                     choices=[e[0] for e in examples],
                     value=examples[0][0],
-                    label="Load example",
+                    label="Preset",
                 )
-                inp = gr.Textbox(label="WorldSpec JSON", value=examples[0][1], lines=18)
-                btn = gr.Button("Run simulator", variant="primary")
+                inp = gr.Textbox(label="WorldSpec JSON", value=examples[0][1], lines=14)
+                btn = gr.Button("Run simulation", variant="primary")
                 status = gr.Textbox(label="Status", interactive=False)
             with gr.Column(scale=1):
-                plot = gr.Plot(label="Trajectory")
-                sim_out = gr.Textbox(label="Simulator final state", lines=10)
-        with gr.Row():
-            base_out = gr.Textbox(label="Base LLM", lines=6)
-            lora_out = gr.Textbox(label="LoRA LLM", lines=6)
+                anim = gr.HTML(label="Animator")
+                nums = gr.Textbox(label="Final state (numbers)", lines=8)
 
         def on_example(name: str):
             for n, body in examples:
@@ -153,18 +286,16 @@ Compare placeholders for **base** vs **LoRA** until GPU model serving is enabled
             return examples[0][1]
 
         example_dd.change(on_example, inputs=[example_dd], outputs=[inp])
-        btn.click(simulate_and_plot, inputs=[inp], outputs=[plot, sim_out, base_out, lora_out, status])
+        btn.click(simulate, inputs=[inp], outputs=[anim, nums, status, results_box])
+        # Auto-run demo on load
+        demo.load(simulate, inputs=[inp], outputs=[anim, nums, status, results_box])
 
-        gr.Markdown("## Result snapshots")
-        res = sorted(str(p) for p in (SPACE_ROOT / "results_figs").glob("*.png"))
-        if res:
-            gr.Gallery(value=res, label="Oracle / metrics figures", columns=3, height=280)
-        gr.Markdown("## Dataset gallery")
-        imgs = gallery_images()
-        if imgs:
-            gr.Gallery(value=imgs, label="ID / OOD / inspect trajectories", columns=3, height=420)
-        else:
-            gr.Markdown("_Gallery images will appear after `scripts/journey/04_make_figures.sh`._")
+        with gr.Accordion("Raw JSON final state / notes", open=False):
+            gr.Markdown(
+                "Full trajectory JSON is intentionally secondary — "
+                "use the animator and numeric readout above. "
+                "Model predictions will appear here once the LoRA adapter is pushed."
+            )
     return demo
 
 
