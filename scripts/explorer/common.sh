@@ -10,12 +10,16 @@ export HF_DATASETS_CACHE="${HF_DATASETS_CACHE:-$HF_HOME/datasets}"
 export PYTHONPATH="$PHIL_CODE${PYTHONPATH:+:$PYTHONPATH}"
 mkdir -p "$HF_HOME" "$PHIL_SCRATCH"/{logs,checkpoints,preds,probes,weightspace}
 
-DEFAULT_VENV="/scratch/galoaa.b/egoexo360/env"
+DEFAULT_VENV="/scratch/galoaa.b/phillm/venv"
+FALLBACK_VENV="/scratch/galoaa.b/egoexo360/env"
 
 activate_phil_venv() {
   local v="${PHIL_VENV:-$DEFAULT_VENV}"
   if [[ ! -x "$v/bin/python" ]]; then
-    echo "ERROR: python not found in $v" >&2
+    v="$FALLBACK_VENV"
+  fi
+  if [[ ! -x "$v/bin/python" ]]; then
+    echo "ERROR: python not found in $v; run scripts/explorer/bootstrap_venv.sh" >&2
     exit 1
   fi
   if [[ -f "$v/bin/activate" ]]; then
@@ -28,6 +32,6 @@ activate_phil_venv() {
   hash -r
   echo "Using venv: $v"
   echo "python=$(command -v python) version=$(python -V 2>&1)"
-  # editable install without pulling heavy/conflicting deps
-  python -m pip install -q -e "$PHIL_CODE" --no-deps || true
+  export PYTHONPATH="$PHIL_CODE${PYTHONPATH:+:$PYTHONPATH}"
+  # Avoid pip editable installs on broken site-packages; rely on PYTHONPATH.
 }

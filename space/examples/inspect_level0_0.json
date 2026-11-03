@@ -1,0 +1,25 @@
+{
+  "dim": 1,
+  "dt": 0.1,
+  "horizon": 1,
+  "objects": [
+    {
+      "id": "o0",
+      "mass": 6.754841186120954,
+      "position": [
+        -4.74989244777333
+      ],
+      "velocity": [
+        -4.499413632617615
+      ],
+      "force": [
+        -11.071570474047089
+      ]
+    }
+  ],
+  "walls": null,
+  "collisions": false,
+  "gravity": null,
+  "restitution": 1.0,
+  "tags": {}
+}

@@ -27,7 +27,7 @@
         linear-gradient(180deg, var(--bg0), var(--bg1));
       min-height: 100vh;
     }
-    .wrap { width: min(980px, 92vw); margin: 0 auto; padding: 3.5rem 0 5rem; }
+    .wrap { width: min(1040px, 92vw); margin: 0 auto; padding: 3.5rem 0 5rem; }
     .brand {
       font-family: Fraunces, serif;
       font-size: clamp(3rem, 8vw, 5.5rem);
@@ -40,7 +40,7 @@
       font-family: Fraunces, serif;
       font-weight: 500;
       font-size: clamp(1.4rem, 3vw, 2rem);
-      max-width: 18ch;
+      max-width: 20ch;
       margin: 1.2rem 0 0.8rem;
     }
     p { color: var(--muted); line-height: 1.55; max-width: 62ch; }
@@ -54,6 +54,19 @@
     section h2 { font-family: Fraunces, serif; margin: 0 0 0.6rem; font-size: 1.5rem; }
     ul { color: var(--muted); line-height: 1.5; }
     code { color: var(--accent); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .grid img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      border: 1px solid var(--line);
+      background: #071218;
+    }
     footer { margin-top: 2rem; color: var(--muted); font-size: 0.9rem; }
   </style>
 </head>
@@ -71,14 +84,14 @@
     <div class="cta">
       <a class="btn" href="https://github.com/bishoymoussa/Phil">GitHub</a>
       <a class="btn ghost" href="https://huggingface.co/datasets/bishoygaloaa/phillm-data">Dataset</a>
-      <a class="btn ghost" href="https://huggingface.co/bishoygaloaa/phillm-qwen3.5-2b-lora">LoRA model</a>
-      <a class="btn ghost" href="https://huggingface.co/spaces/bishoygaloaa/phillm-demo">Demo</a>
+      <a class="btn ghost" href="https://huggingface.co/spaces/bishoygaloaa/phillm-demo">Live demo</a>
+      <a class="btn ghost" href="https://huggingface.co/datasets/bishoygaloaa/phillm-results">Results</a>
     </div>
 
     <section>
       <h2>Hypotheses</h2>
       <ul>
-        <li><strong style="color:var(--ink)">H1 Prediction:</strong> Can an LLM predict full next states (positions &amp; velocities) ID vs OOD?</li>
+        <li><strong style="color:var(--ink)">H1 Prediction:</strong> Can an LLM predict full next states ID vs OOD?</li>
         <li><strong style="color:var(--ink)">H2 Understanding:</strong> Are acceleration / future state / momentum / energy linearly decodable — and teachable via probes?</li>
         <li><strong style="color:var(--ink)">RQ3:</strong> When should the agent call a physics simulator under an explicit call cost?</li>
         <li><strong style="color:var(--ink)">RQ5:</strong> Can an LLM read which physical law a tiny neural simulator encodes from its weights?</li>
@@ -86,18 +99,53 @@
     </section>
 
     <section>
+      <h2>Simulation gallery</h2>
+      <p>Exact simulator rollouts from the ID / OOD / inspect splits (hosted on Hugging Face results).</p>
+      <div class="grid" id="gallery"></div>
+      <p style="margin-top:1rem;font-size:0.9rem">Figures: <code>bishoygaloaa/phillm-results</code> → <code>figs/dataset</code></p>
+    </section>
+
+    <section>
       <h2>Artifacts</h2>
       <p>
         Exact simulator + ID/OOD generator · zero-shot size sweep · LoRA / probe-guided adapters ·
         controlled probes · selective tool-calling agent · weight-space reading pilot.
-        Results mirror from Explorer scratch to Hugging Face so nothing depends on purge-prone storage.
+        Results mirror from Explorer/Journey scratch to Hugging Face.
       </p>
-      <p>Main model: <code>Qwen/Qwen3.5-2B</code> (fallback <code>Qwen/Qwen3-1.7B</code>).</p>
+      <p>Main model: <code>Qwen/Qwen3.5-2B</code>.</p>
     </section>
 
     <footer>
       Bishoy Galoaa · Jonathan Sullivan · Yunhua Luo · 2026
     </footer>
   </div>
+  <script>
+    // Prefer locally committed thumbs when present on gh-pages; else HF URLs
+    const names = [
+      "inspect_0", "inspect_1", "test_0", "test_1",
+      "ood_mag_0", "ood_col_0", "ood_hor_0", "ood_obj_0"
+    ];
+    const g = document.getElementById("gallery");
+    // Use HF dataset file URLs (public)
+    const base = "https://huggingface.co/datasets/bishoygaloaa/phillm-results/resolve/main/figs/dataset/";
+    fetch("https://huggingface.co/api/datasets/bishoygaloaa/phillm-results/tree/main/figs/dataset")
+      .then(r => r.json())
+      .then(files => {
+        (files || []).filter(f => f.path && f.path.endsWith(".png")).slice(0, 12).forEach(f => {
+          const img = document.createElement("img");
+          img.src = "https://huggingface.co/datasets/bishoygaloaa/phillm-results/resolve/main/" + f.path;
+          img.alt = f.path;
+          g.appendChild(img);
+        });
+      })
+      .catch(() => {
+        names.forEach(n => {
+          const img = document.createElement("img");
+          img.src = base + n + ".png";
+          img.alt = n;
+          g.appendChild(img);
+        });
+      });
+  </script>
 </body>
 </html>
