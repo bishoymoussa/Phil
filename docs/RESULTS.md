@@ -2,7 +2,7 @@
 
 **Status:** partial zeroshot · LoRA training in flight · probes / call-policy not yet.
 
-**Takeaway:** Zero-shot Qwen3.5-2B mostly cannot predict Newtonian next states — **8% ID** vs **100% oracle**, and **0%** on `ood_mag` / `ood_hor` / `ood_obj` (n=50 each).
+**Takeaway:** Zero-shot Qwen3.5-2B mostly cannot predict Newtonian next states — **8% ID** vs **100% oracle**, and **0%** on all OOD axes (`ood_mag` / `ood_hor` / `ood_obj` / `ood_col`, n=50 each).
 
 ## ID
 
@@ -21,7 +21,7 @@ By task (zeroshot ID): T1 0/32 · T2 0/11 · T3 4/7 (57%).
 | ood_mag | 0.0% | 64.72 | 1.31e4 | 50 | partial |
 | ood_hor | 0.0% | 38.38 | 17.98 | 50 | partial |
 | ood_obj | 0.0% | 31.85 | 42.96 | 50 | partial |
-| ood_col | — | — | — | 50 target | inference running |
+| ood_col | 0.0% | 29.76 | 57.15 | 50 | partial |
 
 ## Call policy / probes
 
