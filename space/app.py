@@ -1,4 +1,4 @@
-"""PhiLLM Gradio Space: results + matplotlib trajectory with working Play scrub."""
+"""PhiLLM Gradio Space: numeric results + playable 2D/1D simulator (GIF animation)."""
 
 from __future__ import annotations
 
@@ -13,8 +13,10 @@ except ModuleNotFoundError:
     except Exception:
         pass
 
+import io
 import json
 import sys
+import tempfile
 from pathlib import Path
 
 import gradio as gr
@@ -23,6 +25,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from PIL import Image
 
 SPACE_ROOT = Path(__file__).resolve().parent
 if str(SPACE_ROOT) not in sys.path:
@@ -48,29 +51,27 @@ EXAMPLES_DIR = SPACE_ROOT / "examples"
 RESULTS_MD = """
 # PhiLLM — Physics + LLMs
 
-**Takeaway:** Zero-shot **Qwen3.5-2B** mostly **cannot** predict Newtonian next states —
-**8% ID accuracy** vs a **100% oracle**, and **0%** on all four OOD axes
-(partial eval, n=50; LoRA still training).
+**Takeaway:** Zero-shot **Qwen3.5-2B** mostly **cannot** predict Newtonian next states
+(**8% ID** vs **100% oracle**, **0%** on four OOD axes). **LoRA SFT lifts ID to ~38%**
+(n=50) while OOD eval is finishing — early evidence of ID interpolation, not a full world model.
 
 | System | ID acc | Pos MAE | Status |
 |--------|--------|---------|--------|
 | Oracle | **100%** | 0.00 | final · n=2000 |
 | Zero-shot 2B | **8%** | 13.50 | partial · n=50 |
-| LoRA SFT | *pending* | — | training in flight |
+| LoRA SFT | **~38%** | ~0.72 | partial · n=50 |
 
-| OOD axis | Acc | Pos MAE | Status |
-|----------|-----|---------|--------|
-| `ood_mag` | **0%** | 64.7 | partial |
-| `ood_hor` | **0%** | 38.4 | partial |
-| `ood_obj` | **0%** | 31.8 | partial |
-| `ood_col` | **0%** | 29.8 | partial |
-
-**RQ3:** LLM-only **8%** · always-call oracle **100%** (U₀.₁=0.90) · random@0.5 **50%±1.3%**.
+| OOD axis (zero-shot) | Acc | Pos MAE |
+|----------------------|-----|---------|
+| `ood_mag` | **0%** | 64.7 |
+| `ood_hor` | **0%** | 38.4 |
+| `ood_obj` | **0%** | 31.8 |
+| `ood_col` | **0%** | 29.8 |
 
 [Paper site](https://bishoymoussa.github.io/Phil/) ·
 [GitHub](https://github.com/bishoymoussa/Phil) ·
-[Dataset](https://huggingface.co/datasets/bishoygaloaa/phillm-data) ·
-[Raw metrics](https://huggingface.co/datasets/bishoygaloaa/phillm-results)
+[LoRA model](https://huggingface.co/bishoygaloaa/phillm-qwen3.5-2b-lora) ·
+[Metrics](https://huggingface.co/datasets/bishoygaloaa/phillm-results)
 """
 
 
@@ -85,7 +86,7 @@ def _load_example_specs() -> list[tuple[str, str]]:
 def _plot_upto(result: dict, dim: int, walls, frame_idx: int):
     traj = result["trajectory"]
     frame_idx = int(np.clip(frame_idx, 0, len(traj) - 1))
-    fig, ax = plt.subplots(figsize=(6.4, 4.0), facecolor="#0b1c24")
+    fig, ax = plt.subplots(figsize=(6.2, 3.8), facecolor="#0b1c24")
     ax.set_facecolor("#071218")
     for spine in ax.spines.values():
         spine.set_color("#3a5560")
@@ -130,6 +131,14 @@ def _plot_upto(result: dict, dim: int, walls, frame_idx: int):
     return fig
 
 
+def _fig_to_pil(fig) -> Image.Image:
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=100, facecolor=fig.get_facecolor())
+    plt.close(fig)
+    buf.seek(0)
+    return Image.open(buf).convert("RGB")
+
+
 def _pack_traj(result: dict, dim: int, walls) -> str:
     payload = {
         "dim": int(dim),
@@ -154,7 +163,7 @@ def _pack_traj(result: dict, dim: int, walls) -> str:
 
 
 def _unpack(traj_json: str) -> dict | None:
-    if not traj_json or not traj_json.strip():
+    if not traj_json or not str(traj_json).strip():
         return None
     try:
         return json.loads(traj_json)
@@ -162,14 +171,49 @@ def _unpack(traj_json: str) -> dict | None:
         return None
 
 
+def _result_view(data: dict) -> dict:
+    return {
+        "trajectory": data["trajectory"],
+        "objects": data["objects"],
+        "n_collisions": data["n_collisions"],
+        "t": data["t_final"],
+    }
+
+
+def render_gif(traj_json: str, stride: int = 1) -> str | None:
+    """Write an animated GIF and return its path (Gradio Image-friendly)."""
+    data = _unpack(traj_json)
+    if not data:
+        return None
+    result = _result_view(data)
+    frames = []
+    n = len(data["trajectory"])
+    for i in range(0, n, max(1, stride)):
+        fig = _plot_upto(result, data["dim"], data.get("walls"), i)
+        frames.append(_fig_to_pil(fig))
+    if not frames:
+        return None
+    tmp = tempfile.NamedTemporaryFile(suffix=".gif", delete=False)
+    path = tmp.name
+    tmp.close()
+    frames[0].save(
+        path,
+        save_all=True,
+        append_images=frames[1:],
+        duration=80,
+        loop=0,
+    )
+    return path
+
+
 def simulate(spec_json: str):
     try:
         spec = parse_spec(spec_json)
         result = run(spec, return_trajectory=True)
     except SpecError as e:
-        return None, "", "—", f"Spec error: {e}", RESULTS_MD, 0, "t=—"
+        return None, "", "—", f"Spec error: {e}", RESULTS_MD, gr.update(maximum=1, value=0), "t=—"
     except Exception as e:  # noqa: BLE001
-        return None, "", "—", f"Error: {e}", RESULTS_MD, 0, "t=—"
+        return None, "", "—", f"Error: {e}", RESULTS_MD, gr.update(maximum=1, value=0), "t=—"
 
     try:
         walls = json.loads(spec_json).get("walls")
@@ -177,82 +221,76 @@ def simulate(spec_json: str):
         walls = None
 
     packed = _pack_traj(result, spec.dim, walls)
-    fig = _plot_upto(result, spec.dim, walls, 0)
+    gif = render_gif(packed, stride=1)
     lines = [f"t = {result['t']:.4f} s · collisions = {result['n_collisions']}"]
     for o in result["objects"]:
         pos = ", ".join(f"{x:.4f}" for x in o["position"])
         vel = ", ".join(f"{v:.4f}" for v in o["velocity"])
         lines.append(f"{o['id']}:  x=[{pos}]   v=[{vel}]")
     lines.append("")
-    lines.append("Zero-shot ID acc 8% · OOD axes 0% · LoRA eval pending.")
-    status = f"OK · dim={spec.dim} · steps={len(result['trajectory'])-1} · collisions={result['n_collisions']}"
-    return fig, packed, "\n".join(lines), status, RESULTS_MD, 0, f"t=0.000s · frame 0/{len(result['trajectory'])-1}"
+    lines.append("Zero-shot ID 8% → LoRA ~38% (n=50). OOD zero-shot still ~0%.")
+    n_frames = len(result["trajectory"]) - 1
+    status = f"OK · dim={spec.dim} · steps={n_frames} · collisions={result['n_collisions']}"
+    scrub = gr.update(maximum=max(n_frames, 1), value=0)
+    return gif, packed, "\n".join(lines), status, RESULTS_MD, scrub, f"t=0.000s · frame 0/{n_frames}"
 
 
 def show_frame(traj_json: str, frame_idx: float):
     data = _unpack(traj_json)
     if not data:
         return None, "Run a simulation first."
-    # rebuild minimal result dict for plotter
-    result = {
-        "trajectory": data["trajectory"],
-        "objects": data["objects"],
-        "n_collisions": data["n_collisions"],
-        "t": data["t_final"],
-    }
+    result = _result_view(data)
     idx = int(frame_idx)
     fig = _plot_upto(result, data["dim"], data.get("walls"), idx)
+    img = _fig_to_pil(fig)
     label = f"t={data['trajectory'][idx]['t']:.3f}s · frame {idx}/{len(data['trajectory'])-1}"
-    return fig, label
+    return img, label
 
 
-def play_stream(traj_json: str, start_idx: float):
-    """Generator: advance frames so Play animates without Timer/JS."""
+def play(traj_json: str):
+    """Regenerate / return the looping GIF — reliable Play on Spaces."""
     data = _unpack(traj_json)
     if not data:
-        yield None, 0, "Run a simulation first."
-        return
-    n = len(data["trajectory"])
-    start = 0 if int(start_idx) >= n - 1 else int(start_idx)
-    result = {
-        "trajectory": data["trajectory"],
-        "objects": data["objects"],
-        "n_collisions": data["n_collisions"],
-        "t": data["t_final"],
-    }
-    import time
+        return None, "Run a simulation first.", gr.update()
+    gif = render_gif(traj_json, stride=1)
+    n = len(data["trajectory"]) - 1
+    return gif, f"Playing 0→{n}", gr.update(value=0, maximum=max(n, 1))
 
-    for i in range(start, n):
-        fig = _plot_upto(result, data["dim"], data.get("walls"), i)
-        label = f"t={data['trajectory'][i]['t']:.3f}s · frame {i}/{n-1}"
-        yield fig, i, label
-        time.sleep(0.07)
+
+def reset(traj_json: str):
+    img, label = show_frame(traj_json, 0)
+    return img, label, gr.update(value=0)
 
 
 def build() -> gr.Blocks:
     examples = _load_example_specs()
     with gr.Blocks(title="PhiLLM — results + simulator") as demo:
         results_box = gr.Markdown(RESULTS_MD)
-        gr.Markdown("## Exact simulator · 2D / 1D animator")
+        gr.Markdown(
+            "### Exact Newtonian simulator\n"
+            "Pick a preset → **Run simulation** (builds an animated GIF) → **Play** restarts the loop. "
+            "JSON is the advanced editor."
+        )
         with gr.Row():
             with gr.Column(scale=1):
                 example_dd = gr.Dropdown(
                     choices=[e[0] for e in examples],
                     value=examples[0][0],
-                    label="Preset",
+                    label="Preset scene",
                 )
-                inp = gr.Textbox(label="WorldSpec JSON", value=examples[0][1], lines=14)
+                with gr.Accordion("WorldSpec JSON", open=False):
+                    inp = gr.Textbox(value=examples[0][1], lines=14, label="JSON")
                 btn = gr.Button("Run simulation", variant="primary")
                 status = gr.Textbox(label="Status", interactive=False)
-            with gr.Column(scale=1):
-                plot = gr.Plot(label="Trajectory")
+            with gr.Column(scale=1.2):
+                anim = gr.Image(label="Trajectory animation", type="filepath")
                 with gr.Row():
-                    play_btn = gr.Button("Play", variant="primary")
-                    reset_btn = gr.Button("Reset")
-                scrub = gr.Slider(0, 40, value=0, step=1, label="Scrub frame")
+                    play_btn = gr.Button("Play / replay", variant="primary")
+                    reset_btn = gr.Button("Reset to t=0")
+                scrub = gr.Slider(0, 40, value=0, step=1, label="Scrub frame (static)")
                 frame_lbl = gr.Textbox(label="Frame", value="t=—", interactive=False)
-                nums = gr.Textbox(label="Final state (numbers)", lines=8)
-                traj_store = gr.Textbox(visible=False)  # JSON trajectory (replaces gr.State)
+                nums = gr.Textbox(label="Final state (numbers)", lines=7)
+                traj_store = gr.Textbox(visible=False)
 
         def on_example(name: str):
             for n, body in examples:
@@ -261,20 +299,15 @@ def build() -> gr.Blocks:
             return examples[0][1]
 
         example_dd.change(on_example, inputs=[example_dd], outputs=[inp])
+        # also load preset JSON into editor when dropdown changes, then user hits Run
         btn.click(
             simulate,
             inputs=[inp],
-            outputs=[plot, traj_store, nums, status, results_box, scrub, frame_lbl],
+            outputs=[anim, traj_store, nums, status, results_box, scrub, frame_lbl],
         )
-        play_btn.click(play_stream, inputs=[traj_store, scrub], outputs=[plot, scrub, frame_lbl])
-        reset_btn.click(lambda tj: show_frame(tj, 0) + (0,), inputs=[traj_store], outputs=[plot, frame_lbl, scrub])
-        scrub.release(show_frame, inputs=[traj_store, scrub], outputs=[plot, frame_lbl])
-
-        with gr.Accordion("Notes", open=False):
-            gr.Markdown(
-                "Play streams matplotlib frames from the server. "
-                "Original bug: Gradio strips `<script>` in HTML, so the canvas Play button was a no-op."
-            )
+        play_btn.click(play, inputs=[traj_store], outputs=[anim, frame_lbl, scrub])
+        reset_btn.click(reset, inputs=[traj_store], outputs=[anim, frame_lbl, scrub])
+        scrub.release(show_frame, inputs=[traj_store, scrub], outputs=[anim, frame_lbl])
     return demo
 
 

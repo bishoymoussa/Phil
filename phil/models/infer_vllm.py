@@ -101,6 +101,13 @@ def infer_hf(
         inputs = tokenizer(prompt, return_tensors="pt")
         if device.startswith("cuda"):
             inputs = {k: v.to(model.device) for k, v in inputs.items()}
+        # Qwen3.5 often emits a short answer then pads with newlines up to max_new_tokens.
+        # Stop early on EOS / im_end and keep max_tokens modest for physics JSON answers.
+        stop_ids = [tokenizer.eos_token_id]
+        for tok_str in ("<|im_end|>", "<|endoftext|>"):
+            tid = tokenizer.convert_tokens_to_ids(tok_str)
+            if isinstance(tid, int) and tid != tokenizer.unk_token_id:
+                stop_ids.append(tid)
         with torch.no_grad():
             out = model.generate(
                 **inputs,
@@ -108,6 +115,7 @@ def infer_hf(
                 do_sample=temperature > 0,
                 temperature=temperature if temperature > 0 else None,
                 pad_token_id=tokenizer.eos_token_id,
+                eos_token_id=stop_ids,
             )
         gen = out[0][inputs["input_ids"].shape[1] :]
         text = tokenizer.decode(gen, skip_special_tokens=True)
