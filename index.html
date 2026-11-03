@@ -192,8 +192,10 @@
       <strong style="color:var(--ink)">LoRA OOD stays 0%</strong> on all four axes.
       Probes: LoRA raises derived R² (momentum 0.19→0.56, v<sub>k</sub> 0.23→0.51) —
       ID physics is more linearly readable, still not OOD-transferable (n=50/200).
+      Frozen-LLM + linear next-state head stays near chance on ID T1
+      (<strong style="color:var(--ink)">0–2%</strong> vs LoRA gen. <strong style="color:var(--ink)">38%</strong>).
     </p>
-    <div class="status-pill">Results · LoRA ID/OOD · probes · RQ3 selective U₀.₁=0.55</div>
+    <div class="status-pill">Results · LoRA ID/OOD · linear head control · probes · RQ3 selective U₀.₁=0.55</div>
     <p>
       PhiLLM asks whether open-weight LLMs hold a usable internal model of simple point-mass worlds —
       ID vs OOD next-state prediction, linear probes for derived physics, probe-guided teaching,
@@ -276,9 +278,41 @@
             <td class="num">50</td>
             <td class="muted">partial · T1 34% · T2 18% · T3 86%</td>
           </tr>
+          <tr>
+            <td>Frozen LLM + linear head (base)</td>
+            <td class="num">0.0%</td>
+            <td class="num">1.53</td>
+            <td class="num">2.63</td>
+            <td class="num">50</td>
+            <td class="muted">1D single-obj T1 · Ridge on last-tok h · vs input-only 2%/0.83</td>
+          </tr>
+          <tr>
+            <td>Frozen LoRA + linear head</td>
+            <td class="num">2.0%</td>
+            <td class="num">0.71</td>
+            <td class="num">1.17</td>
+            <td class="num">50</td>
+            <td class="muted">adapter frozen · same head · still ≪ LoRA gen. 38%</td>
+          </tr>
+          <tr>
+            <td>Probe-guided (aux a/x/v)</td>
+            <td class="num">22.0%</td>
+            <td class="num">1.06</td>
+            <td class="num">1.28</td>
+            <td class="num">50</td>
+            <td class="muted">init from LoRA · below SFT 38% · v1 collapsed</td>
+          </tr>
+          <tr>
+            <td>Zero-shot 0.8B / 4B</td>
+            <td class="num">6.7% / 0%</td>
+            <td class="num">14.6 / 1.99</td>
+            <td class="muted">—</td>
+            <td class="num">30</td>
+            <td class="muted">size sweep · 4B closer MAE, worse exact</td>
+          </tr>
         </tbody>
       </table>
-      <p class="note">By task (zeroshot ID, n=50): T1 next-state <strong style="color:var(--ink)">0/32 (0%)</strong> · T2 <strong style="color:var(--ink)">0/11 (0%)</strong> · T3 multi-object / collision-ish <strong style="color:var(--ink)">4/7 (57%)</strong>.</p>
+      <p class="note">By task (zeroshot ID, n=50): T1 next-state <strong style="color:var(--ink)">0/32 (0%)</strong> · T2 <strong style="color:var(--ink)">0/11 (0%)</strong> · T3 multi-object / collision-ish <strong style="color:var(--ink)">4/7 (57%)</strong>. Linear-head control is T1-only (1D single-object); MAE beats zeroshot but accuracy stays ~0–2%.</p>
 
       <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.4rem 0 0.2rem;">OOD axes · zero-shot vs LoRA</h3>
       <table class="results">
@@ -369,6 +403,18 @@
             <td>best R² derived</td>
             <td class="num">p 0.19→0.56 · v<sub>k</sub> 0.23→0.51 · x<sub>k</sub> 0.34→0.45 · a 0.15→0.19</td>
             <td class="muted">n≈100–200 T1 · selectivity &gt;0 mid-layer; a still weak</td>
+          </tr>
+          <tr>
+            <td>Probe-guided LoRA (aux heads)</td>
+            <td>ID accuracy / Pos MAE</td>
+            <td class="num">22% / 1.06</td>
+            <td class="muted">n=50 · init from SFT LoRA · below LoRA 38% (v1 collapsed)</td>
+          </tr>
+          <tr>
+            <td>Frozen LLM + linear next-state head</td>
+            <td>ID / OOD acc (T1 1D)</td>
+            <td class="num">base 0% · LoRA-feat 2% · OOD 0%</td>
+            <td class="muted">n=50 · MAE 1.53→0.71 with LoRA feats; input-only 2%/0.83; ≪ gen. LoRA 38%</td>
           </tr>
           <tr>
             <td>RQ5 weight-space reading</td>
