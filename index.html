@@ -156,8 +156,8 @@
     .gif-row figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 0.35rem; }
     .method-figure {
       margin: 1rem 0 0.35rem;
-      padding: 0.75rem;
-      background: #eef3f4;
+      padding: 0.75rem 0.75rem 0.85rem;
+      background: #ffffff;
       border: 1px solid var(--line);
     }
     .method-figure img {
@@ -401,14 +401,13 @@ Return JSON {objects:[{id, position, velocity}]} in SI units.</pre>
     <section id="methods">
       <h2>Methods</h2>
       <figure class="method-figure">
-        <img src="figures/method.svg" alt="PhiLLM method figure: Newtonian simulator and ID/OOD tasks feed a base LLM; parallel LoRA adaptation (H1) and ridge probing (H2) paths" width="1120" height="620" />
+        <img src="figures/method.svg" alt="PhiLLM method figure: Newtonian simulator and ID/OOD tasks feed Qwen3.5-2B; H1 LoRA next-state prediction; H2 ridge probes on hidden states for stated vs derived physics" width="1000" height="420" />
         <figcaption>
           <strong style="color:var(--ink)">Figure 1.</strong>
-          From simulator data to two tests of physics understanding:
-          <strong style="color:var(--ink)">H1</strong> behavioral next-state prediction after LoRA on ID train
-          (ID rises; OOD stays near zero), and
+          Simulator &#8594; ID/OOD tasks &#8594; Qwen3.5-2B, then two paths:
+          <strong style="color:var(--ink)">H1</strong> LoRA for behavioral next-state prediction;
           <strong style="color:var(--ink)">H2</strong> ridge probes on hidden states for stated
-          (<em>m, x₀, v₀, F</em>) vs derived (<em>a, xₖ, vₖ, p, KE</em>) targets with layer-0 / input controls.
+          (<em>m, x₀, v₀, F</em>) vs derived (<em>a, xₖ, vₖ, p, KE</em>) quantities.
           Optional probe-guided LoRA and selective <code>&lt;sim&gt;</code> calling (RQ3) build on the probe path.
         </figcaption>
       </figure>
