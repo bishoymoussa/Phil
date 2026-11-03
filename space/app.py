@@ -177,10 +177,15 @@ def _frame_label(state: dict[str, Any] | None, idx: int) -> str:
 
 
 def _make_state(result: dict, dim: int, walls) -> dict[str, Any]:
-    frames = [{"t": float(s["t"]), "p": s["positions"]} for s in result["trajectory"]]
-    ids = [o["id"] for o in result["objects"]]
-    st = {"frames": frames, "ids": ids, "dim": int(dim), "walls": walls, "i": 0}
-    st["bounds"] = _bounds(frames, int(dim), walls)
+    frames = []
+    for s in result["trajectory"]:
+        pos = [[float(x) for x in p] for p in s["positions"]]
+        frames.append({"t": float(s["t"]), "p": pos})
+    ids = [str(o["id"]) for o in result["objects"]]
+    wall_list = [float(x) for x in walls] if walls is not None else None
+    st: dict[str, Any] = {"frames": frames, "ids": ids, "dim": int(dim), "walls": wall_list, "i": 0}
+    b = _bounds(frames, int(dim), wall_list)
+    st["bounds"] = [float(x) for x in b]
     return st
 
 
@@ -190,9 +195,9 @@ def simulate(spec_json: str):
         spec = parse_spec(spec_json)
         result = run(spec, return_trajectory=True)
     except SpecError as e:
-        return empty, None, "—", f"Spec error: {e}", RESULTS_MD, gr.update(value=0, maximum=0), "t=—"
+        return empty, None, "—", f"Spec error: {e}", RESULTS_MD, 0, "t=—"
     except Exception as e:  # noqa: BLE001
-        return empty, None, "—", f"Error: {e}", RESULTS_MD, gr.update(value=0, maximum=0), "t=—"
+        return empty, None, "—", f"Error: {e}", RESULTS_MD, 0, "t=—"
 
     try:
         walls = json.loads(spec_json).get("walls")
@@ -209,14 +214,13 @@ def simulate(spec_json: str):
     lines.append("Base / LoRA LLM compare: adapters still training — oracle above is ground truth.")
     lines.append("Zero-shot ID acc 8% · OOD axes 0% · LoRA eval pending.")
     status = f"OK · dim={spec.dim} · steps={len(result['trajectory']) - 1} · collisions={result['n_collisions']}"
-    n = len(state["frames"])
     return (
         _render_frame(state, 0),
         state,
         "\n".join(lines),
         status,
         RESULTS_MD,
-        gr.update(value=0, maximum=max(0, n - 1)),
+        0,
         _frame_label(state, 0),
     )
 
@@ -269,8 +273,8 @@ def build() -> gr.Blocks:
                 with gr.Row():
                     play_btn = gr.Button("Play", variant="primary")
                     reset_btn = gr.Button("Reset")
-                scrub = gr.Slider(0, 40, value=0, step=1, label="Scrub frame")
-                frame_lbl = gr.Markdown("t=—")
+                scrub = gr.Slider(minimum=0, maximum=40, value=0, step=1, label="Scrub frame")
+                frame_lbl = gr.Textbox(label="Frame", value="t=—", interactive=False)
                 nums = gr.Textbox(label="Final state (numbers)", lines=8)
 
         def on_example(name: str):
@@ -283,7 +287,8 @@ def build() -> gr.Blocks:
 
         outs = [anim, anim_state, nums, status, results_box, scrub, frame_lbl]
         btn.click(simulate, inputs=[inp], outputs=outs)
-        demo.load(simulate, inputs=[inp], outputs=outs)
+        # Do not auto-run on load — failed load events mark the form as Error on Spaces.
+        # User clicks Run once; Play streams frames.
 
         play_btn.click(play_animation, inputs=[anim_state], outputs=[anim, scrub, frame_lbl])
         reset_btn.click(on_reset, inputs=[anim_state], outputs=[anim, anim_state, scrub, frame_lbl])
