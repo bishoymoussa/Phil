@@ -20,6 +20,7 @@ from typing import Any
 
 import gradio as gr
 import numpy as np
+from PIL import Image as PILImage
 
 SPACE_ROOT = Path(__file__).resolve().parent
 if str(SPACE_ROOT) not in sys.path:
@@ -106,13 +107,16 @@ def _bounds(frames: list, dim: int, walls) -> tuple[float, float, float, float]:
     return xmin - padx, xmax + padx, ymin - pady, ymax + pady
 
 
-def _render_frame(state: dict[str, Any] | None, idx: int) -> np.ndarray:
-    """Draw one trajectory frame to an RGB numpy image (no client JS)."""
+def _blank_image() -> PILImage.Image:
+    return PILImage.fromarray(np.full((400, 640, 3), (7, 18, 24), dtype=np.uint8))
+
+
+def _render_frame(state: dict[str, Any] | None, idx: int) -> PILImage.Image:
+    """Draw one trajectory frame to an RGB image (no client JS)."""
     w, h = 640, 400
-    img = np.zeros((h, w, 3), dtype=np.uint8)
-    img[:] = (7, 18, 24)
+    img = np.full((h, w, 3), (7, 18, 24), dtype=np.uint8)
     if not state or not state.get("frames"):
-        return img
+        return PILImage.fromarray(img)
     frames = state["frames"]
     dim = int(state["dim"])
     walls = state.get("walls")
@@ -163,7 +167,7 @@ def _render_frame(state: dict[str, Any] | None, idx: int) -> np.ndarray:
                     x, y = cx + dx, cy + dy
                     if 0 <= x < w and 0 <= y < h:
                         img[y, x] = color
-    return img
+    return PILImage.fromarray(img)
 
 
 def _frame_label(state: dict[str, Any] | None, idx: int) -> str:
@@ -190,15 +194,14 @@ def _make_state(result: dict, dim: int, walls) -> dict[str, Any]:
 
 
 def simulate(spec_json: str):
-    empty_img = np.zeros((400, 640, 3), dtype=np.uint8)
-    empty_img[:] = (7, 18, 24)
+    empty = _blank_image()
     try:
         spec = parse_spec(spec_json)
         result = run(spec, return_trajectory=True)
     except SpecError as e:
-        return empty_img, None, "—", f"Spec error: {e}", RESULTS_MD, gr.update(value=0, maximum=0), gr.update(active=False), gr.update(value="Play"), "t=—"
+        return empty, None, "—", f"Spec error: {e}", RESULTS_MD, gr.update(value=0, maximum=0), gr.update(active=False), "t=—"
     except Exception as e:  # noqa: BLE001
-        return empty_img, None, "—", f"Error: {e}", RESULTS_MD, gr.update(value=0, maximum=0), gr.update(active=False), gr.update(value="Play"), "t=—"
+        return empty, None, "—", f"Error: {e}", RESULTS_MD, gr.update(value=0, maximum=0), gr.update(active=False), "t=—"
 
     walls = None
     try:
@@ -224,53 +227,45 @@ def simulate(spec_json: str):
         "\n".join(lines),
         status,
         RESULTS_MD,
-        gr.update(value=0, maximum=max(0, n - 1), interactive=True),
+        gr.update(value=0, maximum=max(0, n - 1)),
         gr.update(active=False),
-        gr.update(value="Play"),
         _frame_label(state, 0),
     )
 
 
 def toggle_play(state: dict[str, Any] | None):
     if not state or not state.get("frames"):
-        return state, gr.update(active=False), gr.update(value="Play")
+        return state, gr.update(active=False)
     if state.get("playing"):
         state["playing"] = False
-        return state, gr.update(active=False), gr.update(value="Play")
-    # restart if at end
+        return state, gr.update(active=False)
     if state["i"] >= len(state["frames"]) - 1:
         state["i"] = 0
     state["playing"] = True
-    return state, gr.update(active=True), gr.update(value="Pause")
+    return state, gr.update(active=True)
 
 
 def on_reset(state: dict[str, Any] | None):
     if not state or not state.get("frames"):
-        empty = np.zeros((400, 640, 3), dtype=np.uint8)
-        empty[:] = (7, 18, 24)
-        return empty, state, gr.update(active=False), gr.update(value="Play"), 0, "t=—"
+        return _blank_image(), state, gr.update(active=False), 0, "t=—"
     state["i"] = 0
     state["playing"] = False
-    return _render_frame(state, 0), state, gr.update(active=False), gr.update(value="Play"), 0, _frame_label(state, 0)
+    return _render_frame(state, 0), state, gr.update(active=False), 0, _frame_label(state, 0)
 
 
 def on_scrub(state: dict[str, Any] | None, idx: float):
     if not state or not state.get("frames"):
-        empty = np.zeros((400, 640, 3), dtype=np.uint8)
-        empty[:] = (7, 18, 24)
-        return empty, state, gr.update(active=False), gr.update(value="Play"), "t=—"
+        return _blank_image(), state, gr.update(active=False), "t=—"
     state["i"] = int(idx)
     state["playing"] = False
-    return _render_frame(state, state["i"]), state, gr.update(active=False), gr.update(value="Play"), _frame_label(state, state["i"])
+    return _render_frame(state, state["i"]), state, gr.update(active=False), _frame_label(state, state["i"])
 
 
 def on_tick(state: dict[str, Any] | None):
-    empty = np.zeros((400, 640, 3), dtype=np.uint8)
-    empty[:] = (7, 18, 24)
     if not state or not state.get("frames") or not state.get("playing"):
-        img = empty if not state else _render_frame(state, state.get("i", 0))
         i = state.get("i", 0) if state else 0
-        return img, state, gr.update(active=False), gr.update(value="Play"), i, _frame_label(state, i)
+        img = _blank_image() if not state else _render_frame(state, i)
+        return img, state, gr.update(active=False), i, _frame_label(state, i)
     n = len(state["frames"])
     state["i"] = min(state["i"] + 1, n - 1)
     done = state["i"] >= n - 1
@@ -280,7 +275,6 @@ def on_tick(state: dict[str, Any] | None):
         _render_frame(state, state["i"]),
         state,
         gr.update(active=not done),
-        gr.update(value="Play" if done else "Pause"),
         state["i"],
         _frame_label(state, state["i"]),
     )
@@ -306,7 +300,7 @@ def build() -> gr.Blocks:
                 btn = gr.Button("Run simulation", variant="primary")
                 status = gr.Textbox(label="Status", interactive=False)
             with gr.Column(scale=1):
-                anim = gr.Image(label="Trajectory", interactive=False, height=400)
+                anim = gr.Image(label="Trajectory", interactive=False, type="pil", height=400)
                 with gr.Row():
                     play_btn = gr.Button("Play", variant="primary")
                     reset_btn = gr.Button("Reset")
@@ -323,16 +317,15 @@ def build() -> gr.Blocks:
 
         example_dd.change(on_example, inputs=[example_dd], outputs=[inp])
 
-        sim_outs = [anim, anim_state, nums, status, results_box, scrub, timer, play_btn, frame_lbl]
-        # simulate returns 9 values matching sim_outs — fix signature to include frame_lbl
+        sim_outs = [anim, anim_state, nums, status, results_box, scrub, timer, frame_lbl]
         btn.click(simulate, inputs=[inp], outputs=sim_outs)
         demo.load(simulate, inputs=[inp], outputs=sim_outs)
 
-        play_btn.click(toggle_play, inputs=[anim_state], outputs=[anim_state, timer, play_btn])
-        reset_btn.click(on_reset, inputs=[anim_state], outputs=[anim, anim_state, timer, play_btn, scrub, frame_lbl])
+        play_btn.click(toggle_play, inputs=[anim_state], outputs=[anim_state, timer])
+        reset_btn.click(on_reset, inputs=[anim_state], outputs=[anim, anim_state, timer, scrub, frame_lbl])
         # release only — scrub.change would fight the timer while playing
-        scrub.release(on_scrub, inputs=[anim_state, scrub], outputs=[anim, anim_state, timer, play_btn, frame_lbl])
-        timer.tick(on_tick, inputs=[anim_state], outputs=[anim, anim_state, timer, play_btn, scrub, frame_lbl])
+        scrub.release(on_scrub, inputs=[anim_state, scrub], outputs=[anim, anim_state, timer, frame_lbl])
+        timer.tick(on_tick, inputs=[anim_state], outputs=[anim, anim_state, timer, scrub, frame_lbl])
 
         with gr.Accordion("Raw JSON final state / notes", open=False):
             gr.Markdown(
