@@ -13,6 +13,7 @@ except ModuleNotFoundError:
     except Exception:
         pass
 
+import base64
 import html
 import json
 import sys
@@ -80,126 +81,134 @@ def _load_example_specs() -> list[tuple[str, str]]:
 
 
 def _animator_html(traj: list, objects: list, dim: int, walls) -> str:
-    """Self-contained HTML5 canvas animator (primary viz)."""
+    """HTML5 canvas animator in an iframe.
+
+    Gradio's ``gr.HTML`` strips ``<script>`` tags, so inline JS never runs and
+    Play/Pause become no-ops. A data-URL iframe keeps the script executable.
+    """
     payload = {
-        "dim": dim,
+        "dim": int(dim),
         "walls": walls,
         "ids": [o["id"] for o in objects],
-        "frames": [
-            {
-                "t": s["t"],
-                "p": s["positions"],
-            }
-            for s in traj
-        ],
+        "frames": [{"t": float(s["t"]), "p": s["positions"]} for s in traj],
     }
-    data = json.dumps(payload)
-    # Escape for embedding inside a script? Use JSON in data attribute instead.
-    safe = html.escape(data, quote=True)
-    return f"""
-<div class="phil-anim" data-traj="{safe}" style="font-family:Source Sans 3,system-ui,sans-serif;color:#e8f1f4;">
-  <canvas width="640" height="400" style="width:100%;max-width:640px;background:#071218;border:1px solid rgba(232,241,244,0.12);display:block;"></canvas>
-  <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
-    <button type="button" class="phil-play" style="background:#d4a35c;color:#0b1c24;border:0;padding:6px 12px;font-weight:700;cursor:pointer;">Play</button>
-    <button type="button" class="phil-reset" style="background:transparent;color:#e8f1f4;border:1px solid rgba(232,241,244,0.2);padding:6px 12px;cursor:pointer;">Reset</button>
-    <input type="range" class="phil-scrub" min="0" max="0" value="0" style="flex:1;min-width:120px;" />
-    <span class="phil-label" style="color:#9db4bd;font-size:0.9rem;">t=0</span>
-  </div>
+    data_js = json.dumps(payload)
+    page = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<style>
+  html,body {{ margin:0; background:#071218; color:#e8f1f4;
+    font-family: system-ui, -apple-system, Segoe UI, sans-serif; }}
+  canvas {{ width:100%; max-width:640px; display:block; background:#071218;
+    border:1px solid rgba(232,241,244,0.12); }}
+  .row {{ display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }}
+  button {{ cursor:pointer; padding:6px 12px; font-weight:700; border:0; }}
+  #play {{ background:#d4a35c; color:#0b1c24; }}
+  #reset {{ background:transparent; color:#e8f1f4; border:1px solid rgba(232,241,244,0.2); }}
+  #scrub {{ flex:1; min-width:120px; }}
+  #label {{ color:#9db4bd; font-size:0.9rem; }}
+</style></head><body>
+<canvas id="c" width="640" height="400"></canvas>
+<div class="row">
+  <button type="button" id="play">Play</button>
+  <button type="button" id="reset">Reset</button>
+  <input type="range" id="scrub" min="0" max="0" value="0"/>
+  <span id="label">t=0</span>
 </div>
 <script>
-(function() {{
-  const roots = document.querySelectorAll('.phil-anim');
-  const root = roots[roots.length - 1];
-  if (!root || root.dataset.bound) return;
-  root.dataset.bound = '1';
-  const data = JSON.parse(root.getAttribute('data-traj'));
-  const canvas = root.querySelector('canvas');
-  const ctx = canvas.getContext('2d');
-  const playBtn = root.querySelector('.phil-play');
-  const resetBtn = root.querySelector('.phil-reset');
-  const scrub = root.querySelector('.phil-scrub');
-  const label = root.querySelector('.phil-label');
-  const colors = ['#d4a35c','#5cb8d4','#d45c7a','#7ad45c','#c9a0ff'];
-  scrub.max = Math.max(0, data.frames.length - 1);
-  let i = 0, playing = false, timer = null;
-
-  function bounds() {{
-    let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
-    for (const f of data.frames) {{
-      for (const p of f.p) {{
-        xmin=Math.min(xmin,p[0]); xmax=Math.max(xmax,p[0]);
-        if (data.dim===1) {{ ymin=Math.min(ymin,-1); ymax=Math.max(ymax,1); }}
-        else {{ ymin=Math.min(ymin,p[1]); ymax=Math.max(ymax,p[1]); }}
-      }}
+const data = {data_js};
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const playBtn = document.getElementById('play');
+const resetBtn = document.getElementById('reset');
+const scrub = document.getElementById('scrub');
+const label = document.getElementById('label');
+const colors = ['#d4a35c','#5cb8d4','#d45c7a','#7ad45c','#c9a0ff'];
+scrub.max = Math.max(0, data.frames.length - 1);
+let i = 0, playing = false, timer = null;
+function bounds() {{
+  let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
+  for (const f of data.frames) {{
+    for (const p of f.p) {{
+      xmin=Math.min(xmin,p[0]); xmax=Math.max(xmax,p[0]);
+      if (data.dim===1) {{ ymin=Math.min(ymin,-1); ymax=Math.max(ymax,1); }}
+      else {{ ymin=Math.min(ymin,p[1]||0); ymax=Math.max(ymax,p[1]||0); }}
     }}
-    if (data.walls && data.walls.length>=2) {{
-      xmin=Math.min(xmin,data.walls[0]); xmax=Math.max(xmax,data.walls[1]);
-      if (data.dim===2 && data.walls.length>=4) {{
-        ymin=Math.min(ymin,data.walls[2]); ymax=Math.max(ymax,data.walls[3]);
-      }}
-    }}
-    const padx=(xmax-xmin||1)*0.12, pady=(ymax-ymin||1)*0.12;
-    return [xmin-padx,xmax+padx,ymin-pady,ymax+pady];
   }}
-  const B = bounds();
-  function toxy(p) {{
-    const x = (p[0]-B[0])/(B[1]-B[0]) * canvas.width;
+  if (data.walls && data.walls.length>=2) {{
+    xmin=Math.min(xmin,data.walls[0]); xmax=Math.max(xmax,data.walls[1]);
+    if (data.dim===2 && data.walls.length>=4) {{
+      ymin=Math.min(ymin,data.walls[2]); ymax=Math.max(ymax,data.walls[3]);
+    }}
+  }}
+  const padx=(xmax-xmin||1)*0.12, pady=(ymax-ymin||1)*0.12;
+  return [xmin-padx,xmax+padx,ymin-pady,ymax+pady];
+}}
+const B = bounds();
+function toxy(p) {{
+  const x = (p[0]-B[0])/(B[1]-B[0]) * canvas.width;
+  if (data.dim===1) return [x, canvas.height*0.5];
+  const y = canvas.height - (p[1]-B[2])/(B[3]-B[2]) * canvas.height;
+  return [x,y];
+}}
+function draw(frameIdx) {{
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#071218'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  if (data.walls) {{
+    ctx.strokeStyle='#3a5560'; ctx.setLineDash([6,4]); ctx.lineWidth=1;
     if (data.dim===1) {{
-      const y = canvas.height*0.5;
-      return [x,y];
+      const x0=toxy([data.walls[0],0])[0], x1=toxy([data.walls[1],0])[0];
+      ctx.beginPath(); ctx.moveTo(x0,20); ctx.lineTo(x0,canvas.height-20); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x1,20); ctx.lineTo(x1,canvas.height-20); ctx.stroke();
+    }} else if (data.walls.length>=4) {{
+      const a=toxy([data.walls[0],data.walls[2]]);
+      const b=toxy([data.walls[1],data.walls[3]]);
+      ctx.strokeRect(a[0],b[1],b[0]-a[0],a[1]-b[1]);
     }}
-    const y = canvas.height - (p[1]-B[2])/(B[3]-B[2]) * canvas.height;
-    return [x,y];
+    ctx.setLineDash([]);
   }}
-  function draw(frameIdx) {{
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle='#071218'; ctx.fillRect(0,0,canvas.width,canvas.height);
-    if (data.walls) {{
-      ctx.strokeStyle='#3a5560'; ctx.setLineDash([6,4]); ctx.lineWidth=1;
-      if (data.dim===1) {{
-        const [x0]=toxy([data.walls[0],0]); const [x1]=toxy([data.walls[1],0]);
-        ctx.beginPath(); ctx.moveTo(x0,20); ctx.lineTo(x0,canvas.height-20); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(x1,20); ctx.lineTo(x1,canvas.height-20); ctx.stroke();
-      }} else if (data.walls.length>=4) {{
-        const a=toxy([data.walls[0],data.walls[2]]);
-        const b=toxy([data.walls[1],data.walls[3]]);
-        ctx.strokeRect(a[0],b[1],b[0]-a[0],a[1]-b[1]);
-      }}
-      ctx.setLineDash([]);
+  for (let o=0; o<data.ids.length; o++) {{
+    ctx.strokeStyle=colors[o%colors.length]; ctx.fillStyle=colors[o%colors.length];
+    ctx.lineWidth=2; ctx.beginPath();
+    for (let k=0; k<=frameIdx; k++) {{
+      const xy=toxy(data.frames[k].p[o]);
+      if (k===0) ctx.moveTo(xy[0],xy[1]); else ctx.lineTo(xy[0],xy[1]);
     }}
-    for (let o=0; o<data.ids.length; o++) {{
-      ctx.strokeStyle=colors[o%colors.length]; ctx.fillStyle=colors[o%colors.length];
-      ctx.lineWidth=2; ctx.beginPath();
-      for (let k=0; k<=frameIdx; k++) {{
-        const [x,y]=toxy(data.frames[k].p[o]);
-        if (k===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-      }}
-      ctx.stroke();
-      const [cx,cy]=toxy(data.frames[frameIdx].p[o]);
-      ctx.beginPath(); ctx.arc(cx,cy,7,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle='#9db4bd'; ctx.font='12px sans-serif';
-      ctx.fillText(data.ids[o], cx+10, cy-8);
-      ctx.fillStyle=colors[o%colors.length];
-    }}
-    label.textContent = 't=' + data.frames[frameIdx].t.toFixed(3) + 's · frame ' + frameIdx + '/' + (data.frames.length-1);
-    scrub.value = frameIdx;
+    ctx.stroke();
+    const cxy=toxy(data.frames[frameIdx].p[o]);
+    ctx.beginPath(); ctx.arc(cxy[0],cxy[1],7,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#9db4bd'; ctx.font='12px sans-serif';
+    ctx.fillText(data.ids[o], cxy[0]+10, cxy[1]-8);
+    ctx.fillStyle=colors[o%colors.length];
   }}
-  function stop() {{ playing=false; playBtn.textContent='Play'; if (timer) {{ clearInterval(timer); timer=null; }} }}
-  function start() {{
-    if (playing) return; playing=true; playBtn.textContent='Pause';
-    timer=setInterval(()=>{{
-      i = Math.min(i+1, data.frames.length-1);
-      draw(i);
-      if (i >= data.frames.length-1) stop();
-    }}, 80);
-  }}
-  playBtn.onclick = ()=> playing ? stop() : start();
-  resetBtn.onclick = ()=>{{ stop(); i=0; draw(0); }};
-  scrub.oninput = ()=>{{ stop(); i=+scrub.value; draw(i); }};
-  draw(0);
-}})();
-</script>
-"""
+  label.textContent = 't=' + data.frames[frameIdx].t.toFixed(3) + 's · frame ' + frameIdx + '/' + (data.frames.length-1);
+  scrub.value = String(frameIdx);
+}}
+function stop() {{
+  playing=false; playBtn.textContent='Play';
+  if (timer) {{ clearInterval(timer); timer=null; }}
+}}
+function start() {{
+  if (playing) return;
+  if (i >= data.frames.length-1) i = 0;
+  playing=true; playBtn.textContent='Pause';
+  timer=setInterval(function() {{
+    i = Math.min(i+1, data.frames.length-1);
+    draw(i);
+    if (i >= data.frames.length-1) stop();
+  }}, 80);
+}}
+playBtn.addEventListener('click', function() {{ playing ? stop() : start(); }});
+resetBtn.addEventListener('click', function() {{ stop(); i=0; draw(0); }});
+scrub.addEventListener('input', function() {{ stop(); i=+scrub.value; draw(i); }});
+draw(0);
+</script></body></html>"""
+    b64 = base64.b64encode(page.encode("utf-8")).decode("ascii")
+    return (
+        f'<iframe title="PhiLLM trajectory animator" '
+        f'src="data:text/html;base64,{b64}" '
+        f'sandbox="allow-scripts" '
+        f'style="width:100%;height:480px;border:0;background:#071218;border-radius:2px;"></iframe>'
+    )
 
 
 def simulate(spec_json: str):
