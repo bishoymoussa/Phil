@@ -2,6 +2,17 @@
 
 from __future__ import annotations
 
+# Python 3.13 removed stdlib audioop; Gradio/pydub may need a shim.
+try:
+    import audioop  # noqa: F401
+except ModuleNotFoundError:
+    try:
+        import audioop_lts as audioop  # type: ignore
+        import sys
+        sys.modules["audioop"] = audioop
+    except Exception:
+        pass
+
 import json
 import os
 import sys
