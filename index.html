@@ -154,6 +154,24 @@
       background: #071218;
     }
     .gif-row figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 0.35rem; }
+    .method-figure {
+      margin: 1rem 0 0.35rem;
+      padding: 0.75rem;
+      background: #eef3f4;
+      border: 1px solid var(--line);
+    }
+    .method-figure img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .method-figure figcaption {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-top: 0.65rem;
+      line-height: 1.45;
+      max-width: 78ch;
+    }
     ul { color: var(--muted); line-height: 1.5; padding-left: 1.1rem; }
     ul strong { color: var(--ink); }
     code { color: var(--accent); }
@@ -380,7 +398,19 @@ Return JSON {objects:[{id, position, velocity}]} in SI units.</pre>
     </section>
 
     <section id="methods">
-      <h2>Methods (one paragraph)</h2>
+      <h2>Methods</h2>
+      <figure class="method-figure">
+        <img src="figures/method.svg" alt="PhiLLM method figure: Newtonian simulator and ID/OOD tasks feed a base LLM; parallel LoRA adaptation (H1) and ridge probing (H2) paths" width="1120" height="620" />
+        <figcaption>
+          <strong style="color:var(--ink)">Figure 1.</strong>
+          From simulator data to two tests of physics understanding:
+          <strong style="color:var(--ink)">H1</strong> behavioral next-state prediction after LoRA on ID train
+          (ID rises; OOD stays near zero), and
+          <strong style="color:var(--ink)">H2</strong> ridge probes on hidden states for stated
+          (<em>m, x₀, v₀, F</em>) vs derived (<em>a, xₖ, vₖ, p, KE</em>) targets with layer-0 / input controls.
+          Optional probe-guided LoRA and selective <code>&lt;sim&gt;</code> calling (RQ3) build on the probe path.
+        </figcaption>
+      </figure>
       <p>
         Worlds are 1D/2D point masses under constant forces with elastic collisions and optional walls,
         stepped with fixed-Δt Euler. Each item is a natural-language WorldSpec → JSON next-state target.

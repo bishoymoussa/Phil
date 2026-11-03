@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 620" role="img" aria-labelledby="title desc">
+  <title id="title">PhiLLM method: LoRA fine-tuning and linear probing for physics next-state prediction</title>
+  <desc id="desc">
+    Flow from Newtonian simulator and ID/OOD tasks through a base LLM, then two parallel paths:
+    H1 behavioral LoRA adaptation for next-state prediction, and H2 representational ridge probes
+    on hidden states for stated versus derived physics quantities.
+  </desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#4a5d66"/>
+    </marker>
+    <filter id="soft" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="1.2" stdDeviation="1.6" flood-color="#1a2b33" flood-opacity="0.08"/>
+    </filter>
+    <linearGradient id="panelGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f2f6f7"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1120" height="620" fill="#eef3f4"/>
+
+  <text x="40" y="42" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-weight="700" fill="#1a2b33">PhiLLM - Method overview</text>
+  <text x="40" y="66" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#5a6d76">Next-state prediction (H1) and linear probes for physics quantities (H2) from one base model</text>
+
+  <g filter="url(#soft)">
+    <rect x="36" y="100" width="210" height="460" rx="10" fill="url(#panelGrad)" stroke="#c5d2d6" stroke-width="1.2"/>
+  </g>
+  <text x="141" y="128" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.5" fill="#1f6f7a">DATA</text>
+
+  <rect x="56" y="148" width="170" height="88" rx="8" fill="#1f6f7a"/>
+  <text x="141" y="178" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="15" fill="#ffffff">Newtonian sim</text>
+  <text x="141" y="198" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#d5ecef">2D point masses / Euler</text>
+  <text x="141" y="216" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#d5ecef">forces / collisions / walls</text>
+
+  <rect x="56" y="258" width="170" height="78" rx="8" fill="#ffffff" stroke="#1f6f7a" stroke-width="1.5"/>
+  <text x="141" y="284" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1a2b33">Tasks T1-T3</text>
+  <text x="141" y="304" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#5a6d76">WorldSpec -&gt; JSON</text>
+  <text x="141" y="322" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#5a6d76">next-state targets</text>
+
+  <rect x="56" y="358" width="78" height="72" rx="8" fill="#e7f3ec" stroke="#2f7a58" stroke-width="1.4"/>
+  <text x="95" y="388" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#2f7a58">ID</text>
+  <text x="95" y="408" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="10.5" fill="#3d5c4a">train / test</text>
+
+  <rect x="148" y="358" width="78" height="72" rx="8" fill="#f8ebee" stroke="#a84a58" stroke-width="1.4"/>
+  <text x="187" y="382" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="13" font-weight="700" fill="#a84a58">OOD</text>
+  <text x="187" y="400" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="9.5" fill="#7a4550">mag / hor</text>
+  <text x="187" y="414" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="9.5" fill="#7a4550">obj / col</text>
+
+  <text x="141" y="468" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#5a6d76">Exact oracle = 100%</text>
+  <text x="141" y="488" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#5a6d76">ground-truth dynamics</text>
+
+  <line x1="246" y1="310" x2="300" y2="310" stroke="#4a5d66" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <g filter="url(#soft)">
+    <rect x="310" y="220" width="200" height="180" rx="10" fill="url(#panelGrad)" stroke="#c5d2d6" stroke-width="1.2"/>
+  </g>
+  <text x="410" y="248" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.5" fill="#2c4a5e">MODEL</text>
+  <rect x="330" y="268" width="160" height="86" rx="8" fill="#2c4a5e"/>
+  <text x="410" y="300" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="15" fill="#ffffff">Base LLM</text>
+  <text x="410" y="322" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#c9d7e0">Qwen3.5-2B</text>
+  <text x="410" y="340" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#9fb0bc">zero-shot often fails</text>
+  <text x="410" y="380" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#5a6d76">units / dynamics / OOD</text>
+
+  <path d="M 410 220 C 410 180, 410 160, 560 160" fill="none" stroke="#c17a2e" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M 410 400 C 410 440, 410 460, 560 460" fill="none" stroke="#2f7a58" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <text x="430" y="188" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#c17a2e">H1  behavioral</text>
+  <text x="430" y="442" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#2f7a58">H2  representational</text>
+
+  <g filter="url(#soft)">
+    <rect x="560" y="100" width="520" height="150" rx="10" fill="url(#panelGrad)" stroke="#e0c49a" stroke-width="1.4"/>
+  </g>
+  <text x="580" y="128" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.2" fill="#c17a2e">ADAPTATION  |  LoRA SFT ON ID TRAIN</text>
+
+  <rect x="580" y="148" width="120" height="70" rx="8" fill="#c17a2e"/>
+  <text x="640" y="178" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="15" fill="#ffffff">LoRA</text>
+  <text x="640" y="198" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#f5e6d0">low-rank SFT</text>
+
+  <line x1="700" y1="183" x2="738" y2="183" stroke="#4a5d66" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <rect x="742" y="148" width="150" height="70" rx="8" fill="#ffffff" stroke="#c17a2e" stroke-width="1.5"/>
+  <text x="817" y="174" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12.5" font-weight="700" fill="#1a2b33">Next-state pred.</text>
+  <text x="817" y="194" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#5a6d76">JSON / SI units</text>
+  <text x="817" y="210" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="10.5" fill="#5a6d76">acc / pos-vel MAE</text>
+
+  <line x1="892" y1="183" x2="928" y2="183" stroke="#4a5d66" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <rect x="932" y="142" width="128" height="38" rx="6" fill="#e7f3ec" stroke="#2f7a58" stroke-width="1.2"/>
+  <text x="996" y="166" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#2f7a58">ID up (~8%-&gt;38%)</text>
+
+  <rect x="932" y="188" width="128" height="38" rx="6" fill="#f8ebee" stroke="#a84a58" stroke-width="1.2"/>
+  <text x="996" y="212" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="12" font-weight="700" fill="#a84a58">OOD ~ 0%</text>
+
+  <text x="820" y="238" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11.5" fill="#5a6d76">Reading: ID interpolation -- not a transferable world model</text>
+
+  <g filter="url(#soft)">
+    <rect x="560" y="390" width="520" height="170" rx="10" fill="url(#panelGrad)" stroke="#a8cbb8" stroke-width="1.4"/>
+  </g>
+  <text x="580" y="418" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="700" letter-spacing="1.2" fill="#2f7a58">PROBING  |  RIDGE ON HIDDEN STATES</text>
+
+  <rect x="580" y="438" width="120" height="70" rx="8" fill="#2f7a58"/>
+  <text x="640" y="468" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="14" fill="#ffffff">Hidden states</text>
+  <text x="640" y="488" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#d5ebe0">extract layers</text>
+
+  <line x1="700" y1="473" x2="738" y2="473" stroke="#4a5d66" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <rect x="742" y="438" width="118" height="70" rx="8" fill="#ffffff" stroke="#2f7a58" stroke-width="1.5"/>
+  <text x="801" y="468" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="14" fill="#1a2b33">Ridge probes</text>
+  <text x="801" y="488" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#5a6d76">+ L0 / input ctrl</text>
+
+  <line x1="860" y1="473" x2="896" y2="473" stroke="#4a5d66" stroke-width="1.8" marker-end="url(#arrow)"/>
+
+  <rect x="900" y="428" width="160" height="52" rx="6" fill="#e8f0f5" stroke="#3d6a8a" stroke-width="1.3"/>
+  <text x="980" y="448" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#3d6a8a">Stated</text>
+  <text x="980" y="466" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#3d4a55">m / x0 / v0 / F</text>
+
+  <rect x="900" y="490" width="160" height="52" rx="6" fill="#f5efe6" stroke="#8a5a2e" stroke-width="1.3"/>
+  <text x="980" y="510" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#8a5a2e">Derived</text>
+  <text x="980" y="528" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#4a4035">a / xk / vk / p / KE</text>
+
+  <text x="820" y="544" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#5a6d76">Test: is physics linearly decodable?   |   Optional: probe-guided LoRA / selective &lt;sim&gt; (RQ3)</text>
+
+  <rect x="36" y="578" width="1048" height="28" rx="6" fill="#ffffff" stroke="#c5d2d6" stroke-width="1"/>
+  <circle cx="58" cy="592" r="5" fill="#1f6f7a"/>
+  <text x="70" y="596" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1a2b33">Simulator</text>
+  <circle cx="168" cy="592" r="5" fill="#2c4a5e"/>
+  <text x="180" y="596" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1a2b33">Base LLM</text>
+  <circle cx="278" cy="592" r="5" fill="#c17a2e"/>
+  <text x="290" y="596" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1a2b33">LoRA (H1)</text>
+  <circle cx="398" cy="592" r="5" fill="#2f7a58"/>
+  <text x="410" y="596" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1a2b33">Probes (H2)</text>
+  <circle cx="528" cy="592" r="5" fill="#3d6a8a"/>
+  <text x="540" y="596" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1a2b33">Stated targets</text>
+  <circle cx="668" cy="592" r="5" fill="#8a5a2e"/>
+  <text x="680" y="596" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1a2b33">Derived targets</text>
+  <circle cx="818" cy="592" r="5" fill="#2f7a58"/>
+  <text x="830" y="596" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1a2b33">ID</text>
+  <circle cx="878" cy="592" r="5" fill="#a84a58"/>
+  <text x="890" y="596" font-family="Helvetica, Arial, sans-serif" font-size="11" fill="#1a2b33">OOD</text>
+</svg>

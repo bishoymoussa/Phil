@@ -154,6 +154,24 @@
       background: #071218;
     }
     .gif-row figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 0.35rem; }
+    .method-figure {
+      margin: 1rem 0 0.35rem;
+      padding: 0.75rem;
+      background: #eef3f4;
+      border: 1px solid var(--line);
+    }
+    .method-figure img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .method-figure figcaption {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-top: 0.65rem;
+      line-height: 1.45;
+      max-width: 78ch;
+    }
     ul { color: var(--muted); line-height: 1.5; padding-left: 1.1rem; }
     ul strong { color: var(--ink); }
     code { color: var(--accent); }
@@ -168,13 +186,13 @@
     <div class="tag">Course project · Northeastern · Qwen3.5-2B</div>
     <p class="brand">PhiLLM</p>
     <p class="takeaway">
-      Zero-shot Qwen3.5-2B mostly <em>cannot</em> predict Newtonian next states:
-      <strong style="color:var(--ink)">8% ID accuracy</strong> vs a perfect oracle,
-      and <strong style="color:var(--ink)">0% across all four OOD axes</strong>
-      (partial eval, n=50). LoRA SFT lifts ID to ~38–40% — still far from the oracle,
-      and OOD remains the open question.
+      Zero-shot Qwen3.5-2B mostly <em>cannot</em> predict Newtonian next states
+      (<strong style="color:var(--ink)">8% ID</strong> vs <strong style="color:var(--ink)">100% oracle</strong>).
+      LoRA SFT lifts ID to <strong style="color:var(--ink)">38%</strong> (MAE 13.5→0.82) but
+      <strong style="color:var(--ink)">LoRA OOD stays 0%</strong> on all four axes —
+      evidence of ID interpolation, not a transferable world model (n=50, partial).
     </p>
-    <div class="status-pill">Results · zeroshot + LoRA ID (partial) · OOD LoRA running</div>
+    <div class="status-pill">Results · zeroshot + LoRA ID/OOD (n=50) · probes in progress</div>
     <p>
       PhiLLM asks whether open-weight LLMs hold a usable internal model of simple point-mass worlds —
       ID vs OOD next-state prediction, linear probes for derived physics, probe-guided teaching,
@@ -199,14 +217,14 @@
         <div class="lbl">Qwen3.5-2B · n=50 · partial</div>
       </div>
       <div class="callout">
-        <div class="lbl">All OOD axes</div>
+        <div class="lbl">LoRA OOD (all axes)</div>
         <div class="num bad">0%</div>
-        <div class="lbl">mag · hor · obj · col · n=50 each</div>
+        <div class="lbl">mag · hor · obj · col · n=50</div>
       </div>
       <div class="callout">
         <div class="lbl">LoRA ID (post-SFT)</div>
         <div class="num">38%</div>
-        <div class="lbl">n=50 · was 8% zeroshot · Pos MAE 0.82</div>
+        <div class="lbl">n=50 · was 8% zeroshot · MAE 0.82</div>
       </div>
     </div>
 
@@ -261,53 +279,54 @@
       </table>
       <p class="note">By task (zeroshot ID, n=50): T1 next-state <strong style="color:var(--ink)">0/32 (0%)</strong> · T2 <strong style="color:var(--ink)">0/11 (0%)</strong> · T3 multi-object / collision-ish <strong style="color:var(--ink)">4/7 (57%)</strong>.</p>
 
-      <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.4rem 0 0.2rem;">OOD axes · zero-shot</h3>
+      <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.4rem 0 0.2rem;">OOD axes · zero-shot vs LoRA</h3>
       <table class="results">
         <thead>
           <tr>
             <th>Axis</th>
-            <th>Accuracy</th>
-            <th>Pos MAE</th>
-            <th>Vel MAE</th>
+            <th>ZS Acc</th>
+            <th>ZS Pos MAE</th>
+            <th>LoRA Acc</th>
+            <th>LoRA Pos MAE</th>
             <th>n</th>
-            <th>Status</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td><code>ood_mag</code> (extreme magnitudes)</td>
-            <td class="num">0.0%</td>
+            <td><code>ood_mag</code></td>
+            <td class="num">0%</td>
             <td class="num">64.72</td>
-            <td class="num">1.31×10<sup>4</sup></td>
+            <td class="num">0%</td>
+            <td class="num">7.38</td>
             <td class="num">50</td>
-            <td class="muted">partial</td>
           </tr>
           <tr>
-            <td><code>ood_hor</code> (longer horizon)</td>
-            <td class="num">0.0%</td>
+            <td><code>ood_hor</code></td>
+            <td class="num">0%</td>
             <td class="num">38.38</td>
-            <td class="num">17.98</td>
+            <td class="num">0%</td>
+            <td class="num">12.36</td>
             <td class="num">50</td>
-            <td class="muted">partial</td>
           </tr>
           <tr>
-            <td><code>ood_obj</code> (more objects)</td>
-            <td class="num">0.0%</td>
+            <td><code>ood_obj</code></td>
+            <td class="num">0%</td>
             <td class="num">31.85</td>
-            <td class="num">42.96</td>
+            <td class="num">0%</td>
+            <td class="muted">—</td>
             <td class="num">50</td>
-            <td class="muted">partial</td>
           </tr>
           <tr>
-            <td><code>ood_col</code> (collision-heavy)</td>
-            <td class="num">0.0%</td>
+            <td><code>ood_col</code></td>
+            <td class="num">0%</td>
             <td class="num">29.76</td>
-            <td class="num">57.15</td>
+            <td class="num">0%</td>
+            <td class="num">6.78</td>
             <td class="num">50</td>
-            <td class="muted">partial</td>
           </tr>
         </tbody>
       </table>
+      <p class="note">LoRA cuts OOD position MAE ~4–9× vs zero-shot on mag/hor/col, but still <strong style="color:var(--ink)">0% exact-match accuracy</strong> — closer numbers, wrong physics.</p>
 
       <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.4rem 0 0.2rem;">Call policy / probes</h3>
       <table class="results">
@@ -348,7 +367,7 @@
             <td>H2 ridge probes (base)</td>
             <td>best R² (layer)</td>
             <td class="num">x₀ 0.42 (L24) · F 0.40 · x<sub>k</sub> 0.34 · a 0.15</td>
-            <td class="muted">n=200 dev · derived a/momentum weak; LoRA probes pending</td>
+            <td class="muted">n=200 · derived a/momentum weak; LoRA probes running</td>
           </tr>
           <tr>
             <td>RQ5 weight-space reading</td>
@@ -379,7 +398,19 @@ Return JSON {objects:[{id, position, velocity}]} in SI units.</pre>
     </section>
 
     <section id="methods">
-      <h2>Methods (one paragraph)</h2>
+      <h2>Methods</h2>
+      <figure class="method-figure">
+        <img src="figures/method.svg" alt="PhiLLM method figure: Newtonian simulator and ID/OOD tasks feed a base LLM; parallel LoRA adaptation (H1) and ridge probing (H2) paths" width="1120" height="620" />
+        <figcaption>
+          <strong style="color:var(--ink)">Figure 1.</strong>
+          From simulator data to two tests of physics understanding:
+          <strong style="color:var(--ink)">H1</strong> behavioral next-state prediction after LoRA on ID train
+          (ID rises; OOD stays near zero), and
+          <strong style="color:var(--ink)">H2</strong> ridge probes on hidden states for stated
+          (<em>m, x₀, v₀, F</em>) vs derived (<em>a, xₖ, vₖ, p, KE</em>) targets with layer-0 / input controls.
+          Optional probe-guided LoRA and selective <code>&lt;sim&gt;</code> calling (RQ3) build on the probe path.
+        </figcaption>
+      </figure>
       <p>
         Worlds are 1D/2D point masses under constant forces with elastic collisions and optional walls,
         stepped with fixed-Δt Euler. Each item is a natural-language WorldSpec → JSON next-state target.
