@@ -1,0 +1,48 @@
+\documentclass{article}
+\usepackage[final]{neurips_2024}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{amsmath}
+
+\title{PhiLLM: Can Language Models Predict and Understand Physical State?}
+\author{
+  Bishoy Galoaa \and Jonathan Sullivan \and Yunhua Luo \\
+  Northeastern University
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Frontier work on \emph{weight-space programming} shows that LLMs can read and write the weights of other networks.
+We ask the physics analogue: does an LLM hold a usable internal model of the physical world?
+In a synthetic Newtonian environment with exact ground truth, we (i) measure next-state prediction in and out of distribution after LoRA fine-tuning;
+(ii) probe hidden states for derived quantities with controls;
+(iii) train a selective simulator-call policy under an explicit call cost;
+and (iv) test whether an LLM can identify which physical law a tiny neural simulator encodes from its weights alone.
+\end{abstract}
+
+\section{Motivation}
+Reliable physical reasoning remains hard for LLMs.
+We reframe the project around two headline hypotheses:
+\textbf{H1}---can the model predict the next full state?
+\textbf{H2}---do internals encode derived physics we can probe and teach?
+Secondary questions retain the simulator-call agent (RQ3) and add a weight-reading pilot (RQ5) inspired by Takehi et al.\ (2026).
+
+\section{Methods}
+\paragraph{Environment.} 1D/2D point masses with Euler updates and event-driven elastic collisions.
+Tasks: T1 next-state, T2 inverse, T3 feasibility.
+ID vs OOD axes: magnitude, horizon, objects, collisions.
+
+\paragraph{Models.} Main: \texttt{Qwen3.5-2B} with LoRA; zero-shot size sweep including stronger open models.
+Probe-guided SFT adds an auxiliary linear head on mid-layer activations for $a$ and future $(x,v)$, evaluated on held-out decodability of momentum/energy.
+
+\paragraph{Agent.} Self-error labels train a call policy; compare LLM-only, always-call, selective, random matched-rate, and oracle under $U_\lambda=\mathrm{Acc}-\lambda\cdot\mathrm{CallRate}$.
+
+\paragraph{Weight reading.} Tiny linear/MLP one-step simulators for constant force, Hooke, drag, inverse-square; LLMs must name the law from raw weights (controls: shuffle, random init).
+
+\section{Status}
+Code, data generator, eval harness, Explorer/Journey pipelines, and Hugging Face mirrors are public at \url{https://github.com/bishoymoussa/Phil}.
+
+\end{document}

@@ -1,0 +1,60 @@
+project: phillm
+seed: 42
+
+paths:
+  journey_root: /mnt/work/galoaa/phillm
+  explorer_root: /scratch/galoaa.b/phillm
+  repo: /home/bi.ga/Phil
+
+model:
+  main: Qwen/Qwen3.5-2B
+  fallback: Qwen/Qwen3-1.7B
+  zeroshot:
+    - Qwen/Qwen3.5-0.8B
+    - Qwen/Qwen3.5-2B
+    - Qwen/Qwen3.5-4B
+    - Qwen/Qwen3.5-9B
+    - Qwen/Qwen3.8-27B
+  weight_readers:
+    - Qwen/Qwen3.5-9B
+    - Qwen/Qwen3.8-27B
+
+lora:
+  r: 16
+  alpha: 32
+  epochs: 1.0
+  lr: 2.0e-4
+  batch_size: 2
+  grad_accum: 8
+  max_seq_len: 1024
+
+probe_guided:
+  layer_index: -4
+  aux_weight: 0.1
+  limit: 5000
+
+eval:
+  tol: 0.05
+  lambdas: [0.0, 0.05, 0.1, 0.25]
+
+data:
+  train: 50000
+  dev: 1000
+  dlab: 5000
+  test: 2000
+  ood: 2000
+
+hf:
+  user: bishoygaloaa
+  data: bishoygaloaa/phillm-data
+  results: bishoygaloaa/phillm-results
+  lora: bishoygaloaa/phillm-qwen3.5-2b-lora
+  probeguided: bishoygaloaa/phillm-qwen3.5-2b-probeguided
+  selective: bishoygaloaa/phillm-qwen3.5-2b-selective
+  space: bishoygaloaa/phillm-demo
+
+explorer:
+  partition: multigpu
+  # fallback: gpu
+  time: 08:00:00
+  gpus: 1

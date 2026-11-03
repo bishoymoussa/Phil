@@ -1,0 +1,54 @@
+\documentclass{article}
+\usepackage[final]{neurips_2024}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{amsmath}
+
+\title{PhiLLM Midterm Report: Next-State Prediction and Physical Probes}
+\author{
+  Bishoy Galoaa \and Jonathan Sullivan \and Yunhua Luo \\
+  Northeastern University
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We report midterm results for PhiLLM: an exact Newtonian simulator and ID/OOD dataset;
+zero-shot and LoRA next-state prediction with Qwen3.5 models; first-pass probing with controls;
+simulator-call baselines (LLM-only, always-call, oracle); and a weight-space reading pilot.
+Every number traces to a committed \texttt{metrics.json} mirrored on Hugging Face.
+\end{abstract}
+
+\section{Updated research questions}
+Framing follows weight-space programming~\cite{takehi2026}: can LLMs \emph{read} physics in representations (and tiny network weights), not only emit fluent answers?
+\textbf{H1} prediction ID/OOD; \textbf{H2} probe + probe-guided teaching; RQ3 call policy; RQ5 weight reading.
+
+\section{Setup}
+Simulator acceptance: closed-form error $<10^{-9}$; elastic collisions conserve momentum/energy $<10^{-6}$; gold-as-pred eval $=100\%$.
+Splits: train 50k, dev 1k, $D_{\mathrm{lab}}$ 5k, test 2k, each OOD 2k. Artifacts: \url{https://huggingface.co/datasets/bishoygaloaa/phillm-data}.
+
+\section{Results}
+% Fill from metrics.json after Explorer runs.
+\begin{table}[h]
+\centering
+\caption{Placeholder ID/OOD accuracy (tolerance 5\%). Replace with committed metrics.}
+\begin{tabular}{lcccccc}
+\toprule
+System & ID & OOD-mag & OOD-hor & OOD-obj & OOD-col \\
+\midrule
+Base (best size) & -- & -- & -- & -- & -- \\
+LoRA Qwen3.5-2B & -- & -- & -- & -- & -- \\
+Oracle & 1.00 & 1.00 & 1.00 & 1.00 & 1.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Next for final}
+Probe-guided LoRA, selective agent $\theta$-sweep, full weight-reading eval, NeurIPS final writeup.
+
+\begin{thebibliography}{9}
+\bibitem{takehi2026} R.~Takehi et al. Sparks of Weight-Space Programming. 2026.
+\end{thebibliography}
+\end{document}

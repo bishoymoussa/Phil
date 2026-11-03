@@ -1,0 +1,7 @@
+gradio>=4.44
+numpy>=1.24
+# For full model inference on Spaces GPU, also install:
+# torch
+# transformers
+# peft
+# accelerate
