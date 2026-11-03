@@ -94,7 +94,8 @@ def infer_hf(
         model = PeftModel.from_pretrained(model, adapter_path)
     model.eval()
     rows = []
-    for ex in examples:
+    out_path = getattr(infer_hf, "_out_path", None)
+    for i, ex in enumerate(examples):
         messages = build_messages(ex, mode=mode, fewshot=fewshot, enable_thinking=enable_thinking)
         prompt = _apply_chat_template(tokenizer, messages, enable_thinking=enable_thinking)
         inputs = tokenizer(prompt, return_tensors="pt")
@@ -110,20 +111,22 @@ def infer_hf(
             )
         gen = out[0][inputs["input_ids"].shape[1] :]
         text = tokenizer.decode(gen, skip_special_tokens=True)
-        rows.append(
-            {
-                "id": ex["id"],
-                "raw_output": text,
-                "final_answer": text,
-                "called": False,
-                "spec_str": None,
-                "spec_valid": None,
-                "p_sim": None,
-                "n_tokens": int(gen.numel()),
-                "model": model_name,
-                "adapter": adapter_path,
-            }
-        )
+        row = {
+            "id": ex["id"],
+            "raw_output": text,
+            "final_answer": text,
+            "called": False,
+            "spec_str": None,
+            "spec_valid": None,
+            "p_sim": None,
+            "n_tokens": int(gen.numel()),
+            "model": model_name,
+            "adapter": adapter_path,
+        }
+        rows.append(row)
+        if out_path and (i + 1) % 10 == 0:
+            write_jsonl(out_path, rows)
+            print(f"checkpointed {i+1}/{len(examples)} -> {out_path}", flush=True)
     return rows
 
 
@@ -146,6 +149,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.limit:
         examples = examples[: args.limit]
     fewshot = not args.no_fewshot
+    ensure_dir(__import__("pathlib").Path(args.out).parent)
     if args.backend == "vllm":
         rows = infer_vllm(
             args.model,
@@ -156,6 +160,7 @@ def main(argv: list[str] | None = None) -> None:
             tensor_parallel=args.tp,
         )
     else:
+        infer_hf._out_path = args.out  # incremental checkpoints
         rows = infer_hf(
             args.model,
             examples,
@@ -164,7 +169,6 @@ def main(argv: list[str] | None = None) -> None:
             enable_thinking=args.thinking,
             adapter_path=args.adapter,
         )
-    ensure_dir(__import__("pathlib").Path(args.out).parent)
     write_jsonl(args.out, rows)
     print(f"wrote {len(rows)} predictions -> {args.out}")
 
