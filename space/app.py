@@ -1,4 +1,4 @@
-"""PhiLLM Gradio Space: results-first summary + HTML5 2D/1D animator."""
+"""PhiLLM Gradio Space: results-first summary + Gradio-driven 2D/1D animator."""
 
 from __future__ import annotations
 
@@ -13,13 +13,13 @@ except ModuleNotFoundError:
     except Exception:
         pass
 
-import base64
-import html
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 import gradio as gr
+import numpy as np
 
 SPACE_ROOT = Path(__file__).resolve().parent
 if str(SPACE_ROOT) not in sys.path:
@@ -42,7 +42,6 @@ DEMO_SPEC = {
 
 EXAMPLES_DIR = SPACE_ROOT / "examples"
 
-# Embedded snapshot — keep in sync with docs/RESULTS.md / preds/*.metrics.json
 RESULTS_MD = """
 # PhiLLM — Physics + LLMs
 
@@ -54,7 +53,7 @@ RESULTS_MD = """
 |--------|--------|---------|--------|
 | Oracle | **100%** | 0.00 | final · n=2000 |
 | Zero-shot 2B | **8%** | 13.50 | partial · n=50 |
-| LoRA SFT | *pending* | — | ~49% through training |
+| LoRA SFT | *pending* | — | training in flight |
 
 | OOD axis | Acc | Pos MAE | Status |
 |----------|-----|---------|--------|
@@ -63,13 +62,21 @@ RESULTS_MD = """
 | `ood_obj` | **0%** | 31.8 | partial |
 | `ood_col` | **0%** | 29.8 | partial |
 
-**RQ3:** LLM-only **8%** · always-call oracle **100%** (U₀.₁=0.90) · random@0.5 **50%±1.3%**. Probes/weight-read in flight; LoRA ~59%.
+**RQ3:** LLM-only **8%** · always-call oracle **100%** (U₀.₁=0.90) · random@0.5 **50%±1.3%**.
 
 [Paper site](https://bishoymoussa.github.io/Phil/) ·
 [GitHub](https://github.com/bishoymoussa/Phil) ·
 [Dataset](https://huggingface.co/datasets/bishoygaloaa/phillm-data) ·
 [Raw metrics](https://huggingface.co/datasets/bishoygaloaa/phillm-results)
 """
+
+COLORS = [
+    (212, 163, 92),
+    (92, 184, 212),
+    (212, 92, 122),
+    (122, 212, 92),
+    (201, 160, 255),
+]
 
 
 def _load_example_specs() -> list[tuple[str, str]]:
@@ -80,180 +87,126 @@ def _load_example_specs() -> list[tuple[str, str]]:
     return out
 
 
-def _animator_html(traj: list, objects: list, dim: int, walls) -> str:
-    """HTML5 canvas animator in an iframe.
+def _bounds(frames: list, dim: int, walls) -> tuple[float, float, float, float]:
+    xs, ys = [], []
+    for f in frames:
+        for p in f["p"]:
+            xs.append(float(p[0]))
+            ys.append(float(p[1]) if dim > 1 and len(p) > 1 else 0.0)
+    if dim == 1:
+        ys = [-1.0, 1.0]
+    if walls and len(walls) >= 2:
+        xs.extend([float(walls[0]), float(walls[1])])
+        if dim == 2 and len(walls) >= 4:
+            ys.extend([float(walls[2]), float(walls[3])])
+    xmin, xmax = min(xs), max(xs)
+    ymin, ymax = min(ys), max(ys)
+    padx = (xmax - xmin or 1.0) * 0.12
+    pady = (ymax - ymin or 1.0) * 0.12
+    return xmin - padx, xmax + padx, ymin - pady, ymax + pady
 
-    Gradio's ``gr.HTML`` strips ``<script>`` tags, so inline JS never runs and
-    Play/Pause become no-ops. A data-URL iframe keeps the script executable.
-    """
-    payload = {
+
+def _render_frame(state: dict[str, Any] | None, idx: int) -> np.ndarray:
+    """Draw one trajectory frame to an RGB numpy image (no client JS)."""
+    w, h = 640, 400
+    img = np.zeros((h, w, 3), dtype=np.uint8)
+    img[:] = (7, 18, 24)
+    if not state or not state.get("frames"):
+        return img
+    frames = state["frames"]
+    dim = int(state["dim"])
+    walls = state.get("walls")
+    ids = state["ids"]
+    idx = int(np.clip(idx, 0, len(frames) - 1))
+    xmin, xmax, ymin, ymax = state["bounds"]
+
+    def toxy(p) -> tuple[int, int]:
+        x = int((float(p[0]) - xmin) / (xmax - xmin) * (w - 1))
+        if dim == 1:
+            y = h // 2
+        else:
+            y = int((h - 1) - (float(p[1]) - ymin) / (ymax - ymin) * (h - 1))
+        return x, y
+
+    # walls
+    if walls and len(walls) >= 2:
+        if dim == 1:
+            for wx in (walls[0], walls[1]):
+                x, _ = toxy([wx, 0])
+                img[20 : h - 20, max(0, min(w - 1, x)), :] = (58, 85, 96)
+        elif len(walls) >= 4:
+            x0, y0 = toxy([walls[0], walls[2]])
+            x1, y1 = toxy([walls[1], walls[3]])
+            x_lo, x_hi = sorted((x0, x1))
+            y_lo, y_hi = sorted((y0, y1))
+            img[y_lo, x_lo : x_hi + 1] = (58, 85, 96)
+            img[y_hi, x_lo : x_hi + 1] = (58, 85, 96)
+            img[y_lo : y_hi + 1, x_lo] = (58, 85, 96)
+            img[y_lo : y_hi + 1, x_hi] = (58, 85, 96)
+
+    for o, oid in enumerate(ids):
+        color = COLORS[o % len(COLORS)]
+        trail = [toxy(frames[k]["p"][o]) for k in range(idx + 1)]
+        for a, b in zip(trail, trail[1:]):
+            # crude line
+            n = max(abs(b[0] - a[0]), abs(b[1] - a[1]), 1)
+            for t in range(n + 1):
+                x = int(a[0] + (b[0] - a[0]) * t / n)
+                y = int(a[1] + (b[1] - a[1]) * t / n)
+                if 0 <= x < w and 0 <= y < h:
+                    img[max(0, y - 1) : min(h, y + 2), max(0, x - 1) : min(w, x + 2)] = color
+        cx, cy = trail[-1]
+        rr = 6
+        for dy in range(-rr, rr + 1):
+            for dx in range(-rr, rr + 1):
+                if dx * dx + dy * dy <= rr * rr:
+                    x, y = cx + dx, cy + dy
+                    if 0 <= x < w and 0 <= y < h:
+                        img[y, x] = color
+    return img
+
+
+def _frame_label(state: dict[str, Any] | None, idx: int) -> str:
+    if not state or not state.get("frames"):
+        return "t=—"
+    frames = state["frames"]
+    idx = int(np.clip(idx, 0, len(frames) - 1))
+    return f"t={frames[idx]['t']:.3f}s · frame {idx}/{len(frames) - 1}"
+
+
+def _make_state(result: dict, dim: int, walls) -> dict[str, Any]:
+    frames = [{"t": float(s["t"]), "p": s["positions"]} for s in result["trajectory"]]
+    ids = [o["id"] for o in result["objects"]]
+    st = {
+        "frames": frames,
+        "ids": ids,
         "dim": int(dim),
         "walls": walls,
-        "ids": [o["id"] for o in objects],
-        "frames": [{"t": float(s["t"]), "p": s["positions"]} for s in traj],
+        "i": 0,
+        "playing": False,
     }
-    data_js = json.dumps(payload)
-    page = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"/>
-<style>
-  html,body {{ margin:0; background:#071218; color:#e8f1f4;
-    font-family: system-ui, -apple-system, Segoe UI, sans-serif; }}
-  canvas {{ width:100%; max-width:640px; display:block; background:#071218;
-    border:1px solid rgba(232,241,244,0.12); }}
-  .row {{ display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }}
-  button {{ cursor:pointer; padding:6px 12px; font-weight:700; border:0; }}
-  #play {{ background:#d4a35c; color:#0b1c24; }}
-  #reset {{ background:transparent; color:#e8f1f4; border:1px solid rgba(232,241,244,0.2); }}
-  #scrub {{ flex:1; min-width:120px; }}
-  #label {{ color:#9db4bd; font-size:0.9rem; }}
-</style></head><body>
-<canvas id="c" width="640" height="400"></canvas>
-<div class="row">
-  <button type="button" id="play">Play</button>
-  <button type="button" id="reset">Reset</button>
-  <input type="range" id="scrub" min="0" max="0" value="0"/>
-  <span id="label">t=0</span>
-</div>
-<script>
-const data = {data_js};
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-const playBtn = document.getElementById('play');
-const resetBtn = document.getElementById('reset');
-const scrub = document.getElementById('scrub');
-const label = document.getElementById('label');
-const colors = ['#d4a35c','#5cb8d4','#d45c7a','#7ad45c','#c9a0ff'];
-scrub.max = Math.max(0, data.frames.length - 1);
-let i = 0, playing = false, timer = null;
-function bounds() {{
-  let xmin=Infinity,xmax=-Infinity,ymin=Infinity,ymax=-Infinity;
-  for (const f of data.frames) {{
-    for (const p of f.p) {{
-      xmin=Math.min(xmin,p[0]); xmax=Math.max(xmax,p[0]);
-      if (data.dim===1) {{ ymin=Math.min(ymin,-1); ymax=Math.max(ymax,1); }}
-      else {{ ymin=Math.min(ymin,p[1]||0); ymax=Math.max(ymax,p[1]||0); }}
-    }}
-  }}
-  if (data.walls && data.walls.length>=2) {{
-    xmin=Math.min(xmin,data.walls[0]); xmax=Math.max(xmax,data.walls[1]);
-    if (data.dim===2 && data.walls.length>=4) {{
-      ymin=Math.min(ymin,data.walls[2]); ymax=Math.max(ymax,data.walls[3]);
-    }}
-  }}
-  const padx=(xmax-xmin||1)*0.12, pady=(ymax-ymin||1)*0.12;
-  return [xmin-padx,xmax+padx,ymin-pady,ymax+pady];
-}}
-const B = bounds();
-function toxy(p) {{
-  const x = (p[0]-B[0])/(B[1]-B[0]) * canvas.width;
-  if (data.dim===1) return [x, canvas.height*0.5];
-  const y = canvas.height - (p[1]-B[2])/(B[3]-B[2]) * canvas.height;
-  return [x,y];
-}}
-function draw(frameIdx) {{
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='#071218'; ctx.fillRect(0,0,canvas.width,canvas.height);
-  if (data.walls) {{
-    ctx.strokeStyle='#3a5560'; ctx.setLineDash([6,4]); ctx.lineWidth=1;
-    if (data.dim===1) {{
-      const x0=toxy([data.walls[0],0])[0], x1=toxy([data.walls[1],0])[0];
-      ctx.beginPath(); ctx.moveTo(x0,20); ctx.lineTo(x0,canvas.height-20); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x1,20); ctx.lineTo(x1,canvas.height-20); ctx.stroke();
-    }} else if (data.walls.length>=4) {{
-      const a=toxy([data.walls[0],data.walls[2]]);
-      const b=toxy([data.walls[1],data.walls[3]]);
-      ctx.strokeRect(a[0],b[1],b[0]-a[0],a[1]-b[1]);
-    }}
-    ctx.setLineDash([]);
-  }}
-  for (let o=0; o<data.ids.length; o++) {{
-    ctx.strokeStyle=colors[o%colors.length]; ctx.fillStyle=colors[o%colors.length];
-    ctx.lineWidth=2; ctx.beginPath();
-    for (let k=0; k<=frameIdx; k++) {{
-      const xy=toxy(data.frames[k].p[o]);
-      if (k===0) ctx.moveTo(xy[0],xy[1]); else ctx.lineTo(xy[0],xy[1]);
-    }}
-    ctx.stroke();
-    const cxy=toxy(data.frames[frameIdx].p[o]);
-    ctx.beginPath(); ctx.arc(cxy[0],cxy[1],7,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#9db4bd'; ctx.font='12px sans-serif';
-    ctx.fillText(data.ids[o], cxy[0]+10, cxy[1]-8);
-    ctx.fillStyle=colors[o%colors.length];
-  }}
-  label.textContent = 't=' + data.frames[frameIdx].t.toFixed(3) + 's · frame ' + frameIdx + '/' + (data.frames.length-1);
-  scrub.value = String(frameIdx);
-}}
-function stop() {{
-  playing=false; playBtn.textContent='Play';
-  if (timer) {{ clearInterval(timer); timer=null; }}
-}}
-function start() {{
-  if (playing) return;
-  if (i >= data.frames.length-1) i = 0;
-  playing=true; playBtn.textContent='Pause';
-  timer=setInterval(function() {{
-    i = Math.min(i+1, data.frames.length-1);
-    draw(i);
-    if (i >= data.frames.length-1) stop();
-  }}, 80);
-}}
-playBtn.addEventListener('click', function() {{ playing ? stop() : start(); }});
-resetBtn.addEventListener('click', function() {{ stop(); i=0; draw(0); }});
-scrub.addEventListener('input', function() {{ stop(); i=+scrub.value; draw(i); }});
-draw(0);
-</script></body></html>"""
-    b64 = base64.b64encode(page.encode("utf-8")).decode("ascii")
-    return (
-        f'<iframe title="PhiLLM trajectory animator" '
-        f'src="data:text/html;base64,{b64}" '
-        f'sandbox="allow-scripts" '
-        f'style="width:100%;height:480px;border:0;background:#071218;border-radius:2px;"></iframe>'
-    )
+    st["bounds"] = _bounds(frames, int(dim), walls)
+    return st
 
 
 def simulate(spec_json: str):
+    empty_img = np.zeros((400, 640, 3), dtype=np.uint8)
+    empty_img[:] = (7, 18, 24)
     try:
         spec = parse_spec(spec_json)
         result = run(spec, return_trajectory=True)
     except SpecError as e:
-        return (
-            f"<p style='color:#d45c7a'>Spec error: {html.escape(str(e))}</p>",
-            "—",
-            "Spec error — see animator panel.",
-            RESULTS_MD,
-        )
+        return empty_img, None, "—", f"Spec error: {e}", RESULTS_MD, gr.update(value=0, maximum=0), gr.update(active=False), gr.update(value="Play"), "t=—"
     except Exception as e:  # noqa: BLE001
-        return (
-            f"<p style='color:#d45c7a'>Error: {html.escape(str(e))}</p>",
-            "—",
-            f"Error: {e}",
-            RESULTS_MD,
-        )
+        return empty_img, None, "—", f"Error: {e}", RESULTS_MD, gr.update(value=0, maximum=0), gr.update(active=False), gr.update(value="Play"), "t=—"
 
-    anim = _animator_html(
-        result["trajectory"],
-        result["objects"],
-        spec.dim,
-        getattr(spec, "walls", None) or (result.get("walls")),
-    )
-    # Prefer walls from original JSON if present
+    walls = None
     try:
-        raw = json.loads(spec_json)
-        walls = raw.get("walls")
-        if walls is not None:
-            anim = _animator_html(result["trajectory"], result["objects"], spec.dim, walls)
+        walls = json.loads(spec_json).get("walls")
     except Exception:
-        pass
+        walls = getattr(spec, "walls", None)
 
-    final = {
-        "t": result["t"],
-        "n_collisions": result["n_collisions"],
-        "objects": [
-            {"id": o["id"], "position": o["position"], "velocity": o["velocity"]}
-            for o in result["objects"]
-        ],
-    }
-    # Compact numeric readout (not a wall of JSON)
+    state = _make_state(result, spec.dim, walls)
     lines = [f"t = {result['t']:.4f} s · collisions = {result['n_collisions']}"]
     for o in result["objects"]:
         pos = ", ".join(f"{x:.4f}" for x in o["position"])
@@ -261,9 +214,76 @@ def simulate(spec_json: str):
         lines.append(f"{o['id']}:  x=[{pos}]   v=[{vel}]")
     lines.append("")
     lines.append("Base / LoRA LLM compare: adapters still training — oracle above is ground truth.")
-    lines.append("Zero-shot ID acc 8% · OOD mag/hor/obj 0% · LoRA eval pending.")
-    status = f"OK · dim={spec.dim} · steps={len(result['trajectory'])-1} · collisions={result['n_collisions']}"
-    return anim, "\n".join(lines), status, RESULTS_MD
+    lines.append("Zero-shot ID acc 8% · OOD axes 0% · LoRA eval pending.")
+    status = f"OK · dim={spec.dim} · steps={len(result['trajectory']) - 1} · collisions={result['n_collisions']}"
+    n = len(state["frames"])
+    img = _render_frame(state, 0)
+    return (
+        img,
+        state,
+        "\n".join(lines),
+        status,
+        RESULTS_MD,
+        gr.update(value=0, maximum=max(0, n - 1), interactive=True),
+        gr.update(active=False),
+        gr.update(value="Play"),
+        _frame_label(state, 0),
+    )
+
+
+def toggle_play(state: dict[str, Any] | None):
+    if not state or not state.get("frames"):
+        return state, gr.update(active=False), gr.update(value="Play")
+    if state.get("playing"):
+        state["playing"] = False
+        return state, gr.update(active=False), gr.update(value="Play")
+    # restart if at end
+    if state["i"] >= len(state["frames"]) - 1:
+        state["i"] = 0
+    state["playing"] = True
+    return state, gr.update(active=True), gr.update(value="Pause")
+
+
+def on_reset(state: dict[str, Any] | None):
+    if not state or not state.get("frames"):
+        empty = np.zeros((400, 640, 3), dtype=np.uint8)
+        empty[:] = (7, 18, 24)
+        return empty, state, gr.update(active=False), gr.update(value="Play"), 0, "t=—"
+    state["i"] = 0
+    state["playing"] = False
+    return _render_frame(state, 0), state, gr.update(active=False), gr.update(value="Play"), 0, _frame_label(state, 0)
+
+
+def on_scrub(state: dict[str, Any] | None, idx: float):
+    if not state or not state.get("frames"):
+        empty = np.zeros((400, 640, 3), dtype=np.uint8)
+        empty[:] = (7, 18, 24)
+        return empty, state, gr.update(active=False), gr.update(value="Play"), "t=—"
+    state["i"] = int(idx)
+    state["playing"] = False
+    return _render_frame(state, state["i"]), state, gr.update(active=False), gr.update(value="Play"), _frame_label(state, state["i"])
+
+
+def on_tick(state: dict[str, Any] | None):
+    empty = np.zeros((400, 640, 3), dtype=np.uint8)
+    empty[:] = (7, 18, 24)
+    if not state or not state.get("frames") or not state.get("playing"):
+        img = empty if not state else _render_frame(state, state.get("i", 0))
+        i = state.get("i", 0) if state else 0
+        return img, state, gr.update(active=False), gr.update(value="Play"), i, _frame_label(state, i)
+    n = len(state["frames"])
+    state["i"] = min(state["i"] + 1, n - 1)
+    done = state["i"] >= n - 1
+    if done:
+        state["playing"] = False
+    return (
+        _render_frame(state, state["i"]),
+        state,
+        gr.update(active=not done),
+        gr.update(value="Play" if done else "Pause"),
+        state["i"],
+        _frame_label(state, state["i"]),
+    )
 
 
 def build() -> gr.Blocks:
@@ -274,6 +294,7 @@ def build() -> gr.Blocks:
     with gr.Blocks(title="PhiLLM — results + simulator", css=css) as demo:
         results_box = gr.Markdown(RESULTS_MD)
         gr.Markdown("## Exact simulator · 2D / 1D animator")
+        anim_state = gr.State(None)
         with gr.Row():
             with gr.Column(scale=1):
                 example_dd = gr.Dropdown(
@@ -285,8 +306,14 @@ def build() -> gr.Blocks:
                 btn = gr.Button("Run simulation", variant="primary")
                 status = gr.Textbox(label="Status", interactive=False)
             with gr.Column(scale=1):
-                anim = gr.HTML(label="Animator")
+                anim = gr.Image(label="Trajectory", interactive=False, height=400)
+                with gr.Row():
+                    play_btn = gr.Button("Play", variant="primary")
+                    reset_btn = gr.Button("Reset")
+                scrub = gr.Slider(0, 40, value=0, step=1, label="Scrub frame")
+                frame_lbl = gr.Markdown("t=—")
                 nums = gr.Textbox(label="Final state (numbers)", lines=8)
+                timer = gr.Timer(0.08, active=False)
 
         def on_example(name: str):
             for n, body in examples:
@@ -295,15 +322,22 @@ def build() -> gr.Blocks:
             return examples[0][1]
 
         example_dd.change(on_example, inputs=[example_dd], outputs=[inp])
-        btn.click(simulate, inputs=[inp], outputs=[anim, nums, status, results_box])
-        # Auto-run demo on load
-        demo.load(simulate, inputs=[inp], outputs=[anim, nums, status, results_box])
+
+        sim_outs = [anim, anim_state, nums, status, results_box, scrub, timer, play_btn, frame_lbl]
+        # simulate returns 9 values matching sim_outs — fix signature to include frame_lbl
+        btn.click(simulate, inputs=[inp], outputs=sim_outs)
+        demo.load(simulate, inputs=[inp], outputs=sim_outs)
+
+        play_btn.click(toggle_play, inputs=[anim_state], outputs=[anim_state, timer, play_btn])
+        reset_btn.click(on_reset, inputs=[anim_state], outputs=[anim, anim_state, timer, play_btn, scrub, frame_lbl])
+        # release only — scrub.change would fight the timer while playing
+        scrub.release(on_scrub, inputs=[anim_state, scrub], outputs=[anim, anim_state, timer, play_btn, frame_lbl])
+        timer.tick(on_tick, inputs=[anim_state], outputs=[anim, anim_state, timer, play_btn, scrub, frame_lbl])
 
         with gr.Accordion("Raw JSON final state / notes", open=False):
             gr.Markdown(
-                "Full trajectory JSON is intentionally secondary — "
-                "use the animator and numeric readout above. "
-                "Model predictions will appear here once the LoRA adapter is pushed."
+                "Play/Pause/scrub are Gradio-native (no client JS) so they work on Spaces. "
+                "Model predictions will appear once the LoRA adapter is pushed."
             )
     return demo
 
