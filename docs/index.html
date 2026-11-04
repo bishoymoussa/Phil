@@ -199,12 +199,12 @@
       <strong style="color:var(--ink)">100% ood_mag</strong> (n=50) showing those equations can live in weights.
       It does not change Qwen and does not replace the LoRA
       <strong style="color:var(--ink)">42% ID / 0% OOD</strong> language-model result.
-      Astra text-in/text-out edit of the 2B linear head
-      (coef 2×2048, intercept, both scalers; one LoRA-B slice 512×16 was shown and not swapped into Qwen)
-      returned no numeric listing, so no edited checkpoint exists.
-      Unedited head on the simple-1D slice (n=50): ID <strong style="color:var(--ink)">0%</strong> exact, pos MAE 1.53;
-      ood_mag <strong style="color:var(--ink)">0%</strong>, pos MAE 9.11.
-      That slice is not the mixed-task first-50 behind 4B LoRA 42% / 0%.
+      Astra text-in/text-out (<code>gpt-6-astra-pro</code>, no tools) refused the full 2B linear head
+      (coef 2×2048, scalers, and LoRA-B 512×16). A 64-column crop parsed, but every returned number
+      matched the weights that were sent (max absolute difference 0). On that crop, simple-1D n=50:
+      ID <strong style="color:var(--ink)">0%</strong> exact, pos/vel MAE 5.50/15.45;
+      ood_mag <strong style="color:var(--ink)">0%</strong>, 11.83/35.28 — the same as the unedited crop.
+      Qwen was not rewritten. This does not replace 4B LoRA <strong style="color:var(--ink)">42% ID / 0% OOD</strong>.
     </p>
     <div class="status-pill">Results · LoRA 2B 38% · 4B 42% · 9B 24% · 27B 20% · ZS 9B 10%</div>
     <p>
@@ -340,13 +340,13 @@
             <td class="muted">frozen LLM control</td>
           </tr>
           <tr>
-            <td>2B linear head (not full Qwen)</td>
+            <td>2B linear head, 64-d crop (not full Qwen)</td>
             <td>Astra text edit</td>
-            <td class="muted">—</td>
-            <td class="muted">—</td>
-            <td class="muted">—</td>
+            <td class="num">0%</td>
+            <td class="num">5.50</td>
+            <td class="num">0%</td>
             <td class="num">50</td>
-            <td class="muted">parse failed · no weights returned · unedited head on simple-1D: ID 0% exact, pos MAE 1.53, vel MAE 2.63; ood_mag 0%, pos MAE 9.11, vel MAE 32.3 · different slice from 4B LoRA 42% / 0% (pos MAE 0.77) · LoRA-B not inserted · <a href="https://huggingface.co/datasets/bishoygaloaa/phillm-results/tree/main/preds/astra_weight_edit">metrics</a></td>
+            <td class="muted">negative · crop unchanged (0 of 1,282 entries) · ID vel MAE 15.45 · ood_mag pos/vel MAE 11.83/35.28 · same as unedited crop · full 2048-d dump refused · does not replace 4B LoRA 42%/0% · <a href="https://huggingface.co/datasets/bishoygaloaa/phillm-results/tree/main/preds/astra_weight_edit">metrics</a></td>
           </tr>
           <tr>
             <td>Qwen3.5-4B</td>
@@ -416,7 +416,7 @@
       <p class="note">
         Takeaway: <strong style="color:var(--ink)">2B LoRA 38%</strong> still beats 9B/27B LoRA (24%/20%); <strong style="color:var(--ink)">4B LoRA 42%</strong> is best among language-model runs. ZS peaks at 9B (10%). OOD exact stays <strong style="color:var(--ink)">0%</strong> for ZS / LoRA / probe-guided on mag·hor·obj·col.
         FREIA is a weight-encoded Newtonian law module (closed-form tensors, shuffle control → 0%). It is an oracle-style upper bound (100% exact ID T1, 32/32; 100% ood_mag, n=50; mixed-slice ID 64% because T2/T3 are unanswered) that shows the equations can live in weights. It does not change Qwen and does not replace the LoRA 42% ID / 0% OOD language-model result.
-        Astra was asked to rewrite the 2B linear-head tensors as text and did not return a listing, so those cells are blank. The unedited head on its simple-1D slice is 0% exact (pos MAE 1.53 ID / 9.11 ood_mag), against 4B LoRA 42% ID / 0% OOD on the mixed-task slice.
+        Astra text weight-edit is a negative result: the 64-d crop came back unchanged, scoring 0% ID / 0% ood_mag (pos MAE 5.50 / 11.83), identical to the unedited crop. The full head was refused. It does not replace 4B LoRA 42% ID / 0% OOD.
         LoRA still cuts Pos MAE ~4–9× vs zeroshot. Probes: derived R² momentum <strong style="color:var(--ink)">0.19→0.56</strong>,
         v<sub>k</sub> <strong style="color:var(--ink)">0.23→0.51</strong>. Selective SFT did not learn usable &lt;sim&gt; calling overnight.
       </p>
