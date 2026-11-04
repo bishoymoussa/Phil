@@ -194,8 +194,13 @@
       ID physics is more linearly readable, still not OOD-transferable (n=50/200).
       Frozen-LLM + linear next-state head stays near chance on ID T1
       (<strong style="color:var(--ink)">0–2%</strong> vs LoRA gen. <strong style="color:var(--ink)">38%</strong>).
+      FREIA is a weight-encoded Newtonian law module (closed-form tensors, shuffle control → 0%):
+      an oracle-style upper bound at <strong style="color:var(--ink)">100% exact ID T1</strong> (32/32) and
+      <strong style="color:var(--ink)">100% ood_mag</strong> (n=50) showing those equations can live in weights.
+      It does not change Qwen and does not replace the LoRA
+      <strong style="color:var(--ink)">42% ID / 0% OOD</strong> language-model result.
     </p>
-    <div class="status-pill">Results · LoRA 38% · probe 22% · selective 16% (call≈0) · 0.8B/4B ZS done · 9B/27B on Explorer</div>
+    <div class="status-pill">Results · LoRA 2B 38% · 4B 42% · 9B 24% · 27B 20% · ZS 9B 10%</div>
     <p>
       PhiLLM asks whether open-weight LLMs hold a usable internal model of simple point-mass worlds —
       ID vs OOD next-state prediction, linear probes for derived physics, probe-guided teaching,
@@ -206,6 +211,7 @@
       <a class="btn ghost" href="https://github.com/bishoymoussa/Phil">GitHub</a>
       <a class="btn ghost" href="https://huggingface.co/datasets/bishoygaloaa/phillm-data">Dataset</a>
       <a class="btn ghost" href="https://huggingface.co/datasets/bishoygaloaa/phillm-results">Raw metrics</a>
+      <a class="btn ghost" href="https://huggingface.co/bishoygaloaa/phillm-freia">FREIA weights</a>
     </div>
 
     <div class="callouts" aria-label="Key numbers">
@@ -225,9 +231,19 @@
         <div class="lbl">mag · hor · obj · col · n=50</div>
       </div>
       <div class="callout">
-        <div class="lbl">LoRA ID (post-SFT)</div>
+        <div class="lbl">2B LoRA ID (post-SFT)</div>
         <div class="num">38%</div>
         <div class="lbl">n=50 · was 8% zeroshot · MAE 0.82</div>
+      </div>
+      <div class="callout">
+        <div class="lbl">4B LoRA (the LLM)</div>
+        <div class="num">42%</div>
+        <div class="lbl">best language-model ID · OOD exact 0% · n=50</div>
+      </div>
+      <div class="callout">
+        <div class="lbl">FREIA law module (not Qwen)</div>
+        <div class="num good">100%</div>
+        <div class="lbl">ID T1 32/32 and ood_mag n=50 · mixed slice 64% (T2/T3 blank) · shuffle 0% · does not replace LoRA 42% / 0%</div>
       </div>
     </div>
 
@@ -237,7 +253,7 @@
         One comparison table: <strong style="color:var(--ink)">model size × method × ID / OOD</strong>.
         Metrics from Journey <code>preds/*.metrics.json</code> and
         <a href="https://huggingface.co/datasets/bishoygaloaa/phillm-results">phillm-results</a>.
-        Larger sizes (9B / 27B LoRA + ZS) are queued on Explorer A100/H200.
+        Size sweep complete: 4B LoRA best ID (42%); 9B/27B LoRA below 2B; OOD exact 0% at all sizes.
       </p>
 
       <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.2rem 0 0.2rem;">Size × method</h3>
@@ -322,32 +338,69 @@
             <td>Zero-shot</td>
             <td class="num">0%</td>
             <td class="num">1.99</td>
-            <td class="muted">queued</td>
+            <td class="num">0%</td>
             <td class="num">30</td>
-            <td class="muted">LoRA on A100 · job 11601288</td>
+            <td class="muted">ID Journey · OOD mag/obj Explorer</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-4B</td>
+            <td>LoRA SFT</td>
+            <td class="num">42%</td>
+            <td class="num">0.77</td>
+            <td class="num">0%</td>
+            <td class="num">50</td>
+            <td class="muted">beats 2B LoRA 38% · OOD exact 0%</td>
+          </tr>
+          <tr>
+            <td>FREIA module (not Qwen)</td>
+            <td>closed-form tensors</td>
+            <td class="num">64%</td>
+            <td class="num">~0</td>
+            <td class="num">100% mag</td>
+            <td class="num">50</td>
+            <td class="muted">oracle-style upper bound · Qwen weights unchanged · T1 32/32 exact · ood_mag MAE ~0 · shuffled tensors 0% · T2/T3 unanswered · <a href="https://huggingface.co/bishoygaloaa/phillm-freia">weights</a></td>
           </tr>
           <tr>
             <td>Qwen3.5-9B</td>
-            <td>ZS / LoRA</td>
-            <td class="muted">queued</td>
-            <td class="muted">—</td>
-            <td class="muted">queued</td>
-            <td class="muted">—</td>
-            <td class="muted">H200 LoRA · 11601300 · ZS 11601279</td>
+            <td>Zero-shot</td>
+            <td class="num">10%</td>
+            <td class="num">11.4</td>
+            <td class="num">0%</td>
+            <td class="num">50</td>
+            <td class="muted">A100 ID · OOD mag H100 n=20</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-9B</td>
+            <td>LoRA SFT</td>
+            <td class="num">24%</td>
+            <td class="num">0.83</td>
+            <td class="num">0%</td>
+            <td class="num">50</td>
+            <td class="muted">Explorer · OOD mag/hor/obj 0% (MAE 6.7) · &lt; 2B LoRA 38%</td>
           </tr>
           <tr>
             <td>Qwen3.5-27B</td>
-            <td>ZS / LoRA</td>
-            <td class="muted">queued</td>
+            <td>Zero-shot</td>
+            <td class="num">3.3%</td>
+            <td class="num">5.21</td>
             <td class="muted">—</td>
-            <td class="muted">—</td>
-            <td class="muted">—</td>
-            <td class="muted">H200 · ZS 11601280 · LoRA 11601302</td>
+            <td class="num">30</td>
+            <td class="muted">H200</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-27B</td>
+            <td>LoRA SFT</td>
+            <td class="num">20%</td>
+            <td class="num">1.66</td>
+            <td class="num">0%</td>
+            <td class="num">30</td>
+            <td class="muted">H200 · OOD mag MAE 8.13 · HF 27b-lora</td>
           </tr>
         </tbody>
       </table>
       <p class="note">
-        OOD (2B): exact-match stays <strong style="color:var(--ink)">0%</strong> for ZS / LoRA / probe-guided on mag·hor·obj·col;
+        Takeaway: <strong style="color:var(--ink)">2B LoRA 38%</strong> still beats 9B/27B LoRA (24%/20%); <strong style="color:var(--ink)">4B LoRA 42%</strong> is best among language-model runs. ZS peaks at 9B (10%). OOD exact stays <strong style="color:var(--ink)">0%</strong> for ZS / LoRA / probe-guided on mag·hor·obj·col.
+        FREIA is a weight-encoded Newtonian law module (closed-form tensors, shuffle control → 0%). It is an oracle-style upper bound (100% exact ID T1, 32/32; 100% ood_mag, n=50; mixed-slice ID 64% because T2/T3 are unanswered) that shows the equations can live in weights. It does not change Qwen and does not replace the LoRA 42% ID / 0% OOD language-model result.
         LoRA still cuts Pos MAE ~4–9× vs zeroshot. Probes: derived R² momentum <strong style="color:var(--ink)">0.19→0.56</strong>,
         v<sub>k</sub> <strong style="color:var(--ink)">0.23→0.51</strong>. Selective SFT did not learn usable &lt;sim&gt; calling overnight.
       </p>
