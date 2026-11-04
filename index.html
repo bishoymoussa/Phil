@@ -154,6 +154,24 @@
       background: #071218;
     }
     .gif-row figcaption { font-size: 0.8rem; color: var(--muted); margin-top: 0.35rem; }
+    .method-figure {
+      margin: 1rem 0 0.35rem;
+      padding: 0.75rem 0.75rem 0.85rem;
+      background: #ffffff;
+      border: 1px solid var(--line);
+    }
+    .method-figure img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .method-figure figcaption {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-top: 0.65rem;
+      line-height: 1.45;
+      max-width: 78ch;
+    }
     ul { color: var(--muted); line-height: 1.5; padding-left: 1.1rem; }
     ul strong { color: var(--ink); }
     code { color: var(--accent); }
@@ -168,13 +186,16 @@
     <div class="tag">Course project · Northeastern · Qwen3.5-2B</div>
     <p class="brand">PhiLLM</p>
     <p class="takeaway">
-      Zero-shot Qwen3.5-2B mostly <em>cannot</em> predict Newtonian next states:
-      <strong style="color:var(--ink)">8% ID accuracy</strong> vs a perfect oracle,
-      and <strong style="color:var(--ink)">0% across all four OOD axes</strong>
-      (partial eval, n=50). LoRA SFT lifts ID to ~38–40% — still far from the oracle,
-      and OOD remains the open question.
+      Zero-shot Qwen3.5-2B mostly <em>cannot</em> predict Newtonian next states
+      (<strong style="color:var(--ink)">8% ID</strong> vs <strong style="color:var(--ink)">100% oracle</strong>).
+      LoRA SFT lifts ID to <strong style="color:var(--ink)">38%</strong> (MAE 13.5→0.82) but
+      <strong style="color:var(--ink)">LoRA OOD stays 0%</strong> on all four axes.
+      Probes: LoRA raises derived R² (momentum 0.19→0.56, v<sub>k</sub> 0.23→0.51) —
+      ID physics is more linearly readable, still not OOD-transferable (n=50/200).
+      Frozen-LLM + linear next-state head stays near chance on ID T1
+      (<strong style="color:var(--ink)">0–2%</strong> vs LoRA gen. <strong style="color:var(--ink)">38%</strong>).
     </p>
-    <div class="status-pill">Results · zeroshot + LoRA ID (partial) · OOD LoRA running</div>
+    <div class="status-pill">Results · LoRA 38% · probe 22% · selective 16% (call≈0) · 0.8B/4B ZS done · 9B/27B on Explorer</div>
     <p>
       PhiLLM asks whether open-weight LLMs hold a usable internal model of simple point-mass worlds —
       ID vs OOD next-state prediction, linear probes for derived physics, probe-guided teaching,
@@ -199,165 +220,137 @@
         <div class="lbl">Qwen3.5-2B · n=50 · partial</div>
       </div>
       <div class="callout">
-        <div class="lbl">All OOD axes</div>
+        <div class="lbl">LoRA OOD (all axes)</div>
         <div class="num bad">0%</div>
-        <div class="lbl">mag · hor · obj · col · n=50 each</div>
+        <div class="lbl">mag · hor · obj · col · n=50</div>
       </div>
       <div class="callout">
         <div class="lbl">LoRA ID (post-SFT)</div>
         <div class="num">38%</div>
-        <div class="lbl">n=50 · was 8% zeroshot · Pos MAE 0.82</div>
+        <div class="lbl">n=50 · was 8% zeroshot · MAE 0.82</div>
       </div>
     </div>
 
     <section id="results">
-      <h2>Results <span class="badge partial">partial</span></h2>
+      <h2>Results <span class="badge partial">overnight</span></h2>
       <p class="note">
-        Numbers below are from committed <code>*.metrics.json</code> on Journey
-        (<code>/mnt/work/galoaa/phillm/preds</code>) and mirrored to
-        <code>bishoygaloaa/phillm-results</code>. Zero-shot uses a 50-example subsample
-        of each split while the full sweep finishes. Cells marked
-        <em>pending</em> are not empty guesses — those runs are still in flight.
+        One comparison table: <strong style="color:var(--ink)">model size × method × ID / OOD</strong>.
+        Metrics from Journey <code>preds/*.metrics.json</code> and
+        <a href="https://huggingface.co/datasets/bishoygaloaa/phillm-results">phillm-results</a>.
+        Larger sizes (9B / 27B LoRA + ZS) are queued on Explorer A100/H200.
       </p>
 
-      <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.2rem 0 0.2rem;">ID · Base vs Oracle (and LoRA)</h3>
+      <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.2rem 0 0.2rem;">Size × method</h3>
       <table class="results">
         <thead>
           <tr>
-            <th>System</th>
-            <th>Accuracy</th>
-            <th>Pos MAE</th>
-            <th>Vel MAE</th>
+            <th>Model</th>
+            <th>Method</th>
+            <th>ID acc</th>
+            <th>ID Pos MAE</th>
+            <th>OOD acc</th>
             <th>n</th>
-            <th>Status</th>
+            <th>Notes</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>Oracle (exact sim)</td>
-            <td class="num">100.0%</td>
+            <td>—</td>
+            <td>Oracle sim</td>
+            <td class="num">100%</td>
             <td class="num">0.00</td>
-            <td class="num">0.00</td>
+            <td class="num">100%</td>
             <td class="num">2000</td>
-            <td class="muted">final</td>
+            <td class="muted">ceiling</td>
           </tr>
           <tr>
-            <td>Zero-shot Qwen3.5-2B</td>
-            <td class="num">8.0%</td>
-            <td class="num">13.50</td>
-            <td class="num">42.93</td>
+            <td>Qwen3.5-0.8B</td>
+            <td>Zero-shot</td>
+            <td class="num">6.7%</td>
+            <td class="num">14.6</td>
+            <td class="muted">—</td>
+            <td class="num">30</td>
+            <td class="muted">Journey</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-2B</td>
+            <td>Zero-shot</td>
+            <td class="num">8%</td>
+            <td class="num">13.5</td>
+            <td class="num">0%</td>
             <td class="num">50</td>
-            <td class="muted">partial subsample</td>
+            <td class="muted">all 4 OOD axes</td>
           </tr>
           <tr>
-            <td>LoRA SFT Qwen3.5-2B</td>
-            <td class="num">38.0%</td>
+            <td>Qwen3.5-2B</td>
+            <td>LoRA SFT</td>
+            <td class="num">38%</td>
             <td class="num">0.82</td>
-            <td class="num">1.51</td>
+            <td class="num">0%</td>
             <td class="num">50</td>
-            <td class="muted">partial · T1 34% · T2 18% · T3 86%</td>
+            <td class="muted">best ID so far · OOD MAE↓</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-2B</td>
+            <td>Probe-guided</td>
+            <td class="num">22%</td>
+            <td class="num">1.06</td>
+            <td class="num">0%</td>
+            <td class="num">50</td>
+            <td class="muted">init-from-LoRA · &lt; SFT</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-2B</td>
+            <td>Selective θ</td>
+            <td class="num">16%</td>
+            <td class="muted">~1.2</td>
+            <td class="muted">—</td>
+            <td class="num">50</td>
+            <td class="muted">call_rate≈0 · p_sim≪θ</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-2B</td>
+            <td>Linear head</td>
+            <td class="num">0–2%</td>
+            <td class="num">0.71–1.53</td>
+            <td class="num">0%</td>
+            <td class="num">50</td>
+            <td class="muted">frozen LLM control</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-4B</td>
+            <td>Zero-shot</td>
+            <td class="num">0%</td>
+            <td class="num">1.99</td>
+            <td class="muted">queued</td>
+            <td class="num">30</td>
+            <td class="muted">LoRA on A100 · job 11601288</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-9B</td>
+            <td>ZS / LoRA</td>
+            <td class="muted">queued</td>
+            <td class="muted">—</td>
+            <td class="muted">queued</td>
+            <td class="muted">—</td>
+            <td class="muted">H200 LoRA · 11601300 · ZS 11601279</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-27B</td>
+            <td>ZS / LoRA</td>
+            <td class="muted">queued</td>
+            <td class="muted">—</td>
+            <td class="muted">—</td>
+            <td class="muted">—</td>
+            <td class="muted">H200 · ZS 11601280 · LoRA 11601302</td>
           </tr>
         </tbody>
       </table>
-      <p class="note">By task (zeroshot ID, n=50): T1 next-state <strong style="color:var(--ink)">0/32 (0%)</strong> · T2 <strong style="color:var(--ink)">0/11 (0%)</strong> · T3 multi-object / collision-ish <strong style="color:var(--ink)">4/7 (57%)</strong>.</p>
-
-      <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.4rem 0 0.2rem;">OOD axes · zero-shot</h3>
-      <table class="results">
-        <thead>
-          <tr>
-            <th>Axis</th>
-            <th>Accuracy</th>
-            <th>Pos MAE</th>
-            <th>Vel MAE</th>
-            <th>n</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td><code>ood_mag</code> (extreme magnitudes)</td>
-            <td class="num">0.0%</td>
-            <td class="num">64.72</td>
-            <td class="num">1.31×10<sup>4</sup></td>
-            <td class="num">50</td>
-            <td class="muted">partial</td>
-          </tr>
-          <tr>
-            <td><code>ood_hor</code> (longer horizon)</td>
-            <td class="num">0.0%</td>
-            <td class="num">38.38</td>
-            <td class="num">17.98</td>
-            <td class="num">50</td>
-            <td class="muted">partial</td>
-          </tr>
-          <tr>
-            <td><code>ood_obj</code> (more objects)</td>
-            <td class="num">0.0%</td>
-            <td class="num">31.85</td>
-            <td class="num">42.96</td>
-            <td class="num">50</td>
-            <td class="muted">partial</td>
-          </tr>
-          <tr>
-            <td><code>ood_col</code> (collision-heavy)</td>
-            <td class="num">0.0%</td>
-            <td class="num">29.76</td>
-            <td class="num">57.15</td>
-            <td class="num">50</td>
-            <td class="muted">partial</td>
-          </tr>
-        </tbody>
-      </table>
-
-      <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.4rem 0 0.2rem;">Call policy / probes</h3>
-      <table class="results">
-        <thead>
-          <tr>
-            <th>Experiment</th>
-            <th>Metric</th>
-            <th>Value</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>RQ3 LLM-only (zeroshot)</td>
-            <td>ID accuracy</td>
-            <td class="num">8.0%</td>
-            <td class="muted">partial · n=50 · call_rate=0</td>
-          </tr>
-          <tr>
-            <td>RQ3 always-call oracle</td>
-            <td>ID accuracy / U<sub>0.1</sub></td>
-            <td class="num">100% / 0.90</td>
-            <td class="muted">n=50 · call_rate=1</td>
-          </tr>
-          <tr>
-            <td>RQ3 random caller (rate 0.5)</td>
-            <td>ID accuracy mean±std</td>
-            <td class="num">50.0% ± 1.3%</td>
-            <td class="muted">5 seeds · mixes LLM-only + oracle-call</td>
-          </tr>
-          <tr>
-            <td>RQ3 selective θ-sweep</td>
-            <td>U<sub>λ</sub> / AUROC</td>
-            <td class="muted">pending</td>
-            <td class="muted">needs self-error labels on LoRA dlab</td>
-          </tr>
-          <tr>
-            <td>H2 ridge probes (base)</td>
-            <td>best R² (layer)</td>
-            <td class="num">x₀ 0.42 (L24) · F 0.40 · x<sub>k</sub> 0.34 · a 0.15</td>
-            <td class="muted">n=200 dev · derived a/momentum weak; LoRA probes pending</td>
-          </tr>
-          <tr>
-            <td>RQ5 weight-space reading</td>
-            <td>law ID accuracy</td>
-            <td class="muted">0/4 law IDs parsed (pilot, no controls)</td>
-            <td class="muted">4 tiny sims trained; Qwen3.5-2B pilot</td>
-          </tr>
-        </tbody>
-      </table>
+      <p class="note">
+        OOD (2B): exact-match stays <strong style="color:var(--ink)">0%</strong> for ZS / LoRA / probe-guided on mag·hor·obj·col;
+        LoRA still cuts Pos MAE ~4–9× vs zeroshot. Probes: derived R² momentum <strong style="color:var(--ink)">0.19→0.56</strong>,
+        v<sub>k</sub> <strong style="color:var(--ink)">0.23→0.51</strong>. Selective SFT did not learn usable &lt;sim&gt; calling overnight.
+      </p>
     </section>
 
     <section id="vignette">
@@ -379,7 +372,18 @@ Return JSON {objects:[{id, position, velocity}]} in SI units.</pre>
     </section>
 
     <section id="methods">
-      <h2>Methods (one paragraph)</h2>
+      <h2>Methods</h2>
+      <figure class="method-figure">
+        <img src="figures/method.svg" alt="PhiLLM method figure: Newtonian simulator and ID/OOD tasks feed Qwen3.5-2B; H1 LoRA next-state prediction; H2 ridge probes on hidden states for stated vs derived physics" width="1000" height="420" />
+        <figcaption>
+          <strong style="color:var(--ink)">Figure 1.</strong>
+          Simulator &#8594; ID/OOD tasks &#8594; Qwen3.5-2B, then two paths:
+          <strong style="color:var(--ink)">H1</strong> LoRA for behavioral next-state prediction;
+          <strong style="color:var(--ink)">H2</strong> ridge probes on hidden states for stated
+          (<em>m, x₀, v₀, F</em>) vs derived (<em>a, xₖ, vₖ, p, KE</em>) quantities.
+          Optional probe-guided LoRA and selective <code>&lt;sim&gt;</code> calling (RQ3) build on the probe path.
+        </figcaption>
+      </figure>
       <p>
         Worlds are 1D/2D point masses under constant forces with elastic collisions and optional walls,
         stepped with fixed-Δt Euler. Each item is a natural-language WorldSpec → JSON next-state target.
