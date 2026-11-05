@@ -224,8 +224,10 @@ for i in range(24):
 
         <p class="label">What was written</p>
         <p>
-          An earlier check wrongly treated this column-wise scale as one constant on the whole tensor and rejected it. The scored edit is this same block after that check was limited to a single constant. It wrote all 24 tensors
-          <span class="counts">model.language_model.layers.{0–23}.mlp.down_proj.weight</span>,
+          The first kernel refused <span class="counts">layers.0.mlp.down_proj.weight</span>:
+          the edit only multiplies the whole tensor by a constant.
+          A patched run then wrote all 24 tensors
+          <span class="counts">layers.{0–23}.mlp.down_proj.weight</span>,
           each shape [1024, 3584], 36 columns, 36,864 entries.
           Together that is 884,736 entries. The largest absolute change is about 0.0027.
         </p>
@@ -256,7 +258,7 @@ for i in range(24):
     <p class="foot">
       <a href="index.html">PhiLLM results</a>
       · <a href="https://huggingface.co/datasets/bishoygaloaa/phillm-results/tree/main/preds">metrics</a>
-      · <a href="https://huggingface.co/bishoygaloaa/phillm-qwen3.5-0.8b-astra-edit">edited weights</a>
+      · no model was uploaded from this edit
     </p>
   </div>
 </body>
