@@ -165,64 +165,53 @@
 </head>
 <body>
   <div class="page">
-    <p class="kicker">PhiLLM · Qwen3.5-0.8B · openai/gpt-6-astra-pro</p>
+    <p class="kicker">PhiLLM · Qwen3.5-0.8B · openai/gpt-6-astra</p>
     <h1>Astra edits Qwen weights</h1>
-    <p class="sub">Text in, text out, no tools. The reply is a refusal. No weight row came back.</p>
+    <p class="sub">Text in, text out, no tools. The listing came back as a refusal. No weight line was rewritten.</p>
     <hr />
 
     <div class="sheet">
       <section class="in">
         <h2>In</h2>
         <p class="arch">
-          Real weights from Qwen3.5-0.8B, language-model layer 0, a linear-attention block.
-          The four tensors are complete. Row i is hidden coordinate i. Three decimals.
-          The forward pass of these tensors is
+          The listing follows the weight files in
+          <a href="https://github.com/RikiyaT/lm_understand-logs">lm_understand-logs</a>:
+          a header, then one line per row, three decimals, no row index on the line.
+          Row i is the input coordinate. These four tensors are complete.
+          The forward pass is
         </p>
-        <p class="formula">a = h @ W1<br />b = h @ W2<br />beta = sigmoid(b)<br />g = −exp(b2) · softplus(a + b1)</p>
+        <p class="formula">a = h @ in_proj_a<br />b = h @ in_proj_b<br />beta = sigmoid(b)<br />g = −exp(A_log) · softplus(a + dt_bias)</p>
         <p>
-          W1 is <span class="formula">in_proj_a</span> (1024 × 16).
-          W2 is <span class="formula">in_proj_b</span>.
-          b1 is <span class="formula">dt_bias</span>.
-          b2 is <span class="formula">A_log</span>.
-          32,800 numbers. The rest of the model was not in the prompt.
-          Astra was asked to rewrite every row so the network follows
-          a = F/m, x′ = x + vΔt, v′ = v + aΔt, and to output only the weight rows.
-          No tools.
+          32,800 numbers. The torch Linear weights are the transposes of the matrices below.
+          Astra was asked to return the same listing. No tools.
         </p>
 
-        <pre>W1 row 0 -0.023 -0.025 -0.018 0.058 -0.012 -0.025 -0.023 -0.035 0.007 -0.022 -0.020 0.034 -0.016 0.103 -0.027 -0.028
-[32 numbers left out]
-W1 row 3 0.079 -0.011 -0.016 -0.032 -0.105 -0.004 -0.068 -0.048 -0.014 -0.125 -0.058 -0.053 0.029 -0.036 0.011 -0.017
-[64 numbers left out]
-W1 row 8 -0.012 -0.006 -0.019 0.046 0.017 0.027 -0.007 -0.004 -0.015 -0.005 0.011 0.042 -0.033 0.066 -0.006 -0.009
-[848 numbers left out]
-W1 row 62 0.054 -0.126 -0.055 0.006 -0.004 -0.059 -0.031 -0.034 -0.011 -0.026 -0.022 0.010 -0.053 0.023 -0.097 -0.030
-[1,504 numbers left out]
-W1 row 157 0.058 0.032 0.015 0.008 0.008 0.033 -0.010 0.031 0.004 0.017 -0.032 0.053 0.033 0.037 0.046 -0.005
-[13,840 numbers left out]
-W1 row 1023 0.024 0.028 -0.014 0.027 -0.038 0.043 0.028 -0.030 -0.011 -0.015 0.060 0.030 0.015 0.022 0.044 0.004
+        <pre>in_proj_a (layer 0 linear-attention, model.language_model.layers.0.linear_attn.in_proj_a.weight), shape 1024 x 16: one line per row (row i = input i), 16 values per line
+-0.023 -0.025 -0.018 0.058 -0.012 -0.025 -0.023 -0.035 0.007 -0.022 -0.020 0.034 -0.016 0.103 -0.027 -0.028
+0.068 -0.003 0.046 -0.028 -0.001 -0.010 -0.003 0.028 -0.015 0.073 0.038 0.092 0.018 -0.017 0.005 -0.002
+0.092 -0.086 -0.021 -0.010 -0.039 -0.067 -0.021 -0.011 0.012 0.030 -0.036 0.131 -0.014 0.019 -0.049 -0.039
+0.079 -0.011 -0.016 -0.032 -0.105 -0.004 -0.068 -0.048 -0.014 -0.125 -0.058 -0.053 0.029 -0.036 0.011 -0.017
+[16,320 numbers left out]
 
-W2 row 0 0.011 0.057 0.077 0.093 0.024 0.006 -0.001 0.061 -0.004 0.036 0.031 -0.010 0.068 0.030 -0.002 0.045
-[32 numbers left out]
-W2 row 3 0.014 -0.089 -0.036 -0.024 -0.006 -0.026 -0.012 -0.066 -0.010 -0.039 -0.007 0.046 -0.023 0.030 0.024 -0.033
-[64 numbers left out]
-W2 row 8 -0.004 0.003 -0.013 -0.067 -0.003 0.018 0.022 -0.015 0.035 0.012 0.021 -0.013 -0.003 -0.024 0.058 0.002
-[848 numbers left out]
-W2 row 62 -0.032 0.004 -0.017 -0.014 -0.007 -0.009 0.006 -0.000 -0.011 -0.017 -0.023 -0.029 -0.022 -0.019 -0.016 -0.020
-[1,504 numbers left out]
-W2 row 157 -0.034 -0.014 -0.008 -0.017 -0.036 0.009 0.014 -0.031 0.015 -0.014 0.023 -0.030 -0.005 -0.045 0.028 -0.007
-[13,840 numbers left out]
-W2 row 1023 0.010 -0.015 -0.003 -0.034 0.000 -0.003 0.002 -0.014 -0.004 -0.015 -0.010 0.010 -0.008 -0.010 -0.011 -0.002
+in_proj_b (layer 0 linear-attention, model.language_model.layers.0.linear_attn.in_proj_b.weight), shape 1024 x 16: one line per row (row i = input i), 16 values per line
+0.011 0.057 0.077 0.093 0.024 0.006 -0.001 0.061 -0.004 0.036 0.031 -0.010 0.068 0.030 -0.002 0.045
+0.008 0.005 -0.001 0.025 -0.013 0.006 -0.010 0.028 -0.018 0.002 0.004 -0.017 -0.015 -0.014 -0.031 -0.017
+-0.040 -0.004 -0.000 0.068 0.030 -0.018 -0.023 -0.000 -0.033 -0.011 -0.039 -0.059 0.009 -0.002 -0.067 -0.024
+0.014 -0.089 -0.036 -0.024 -0.006 -0.026 -0.012 -0.066 -0.010 -0.039 -0.007 0.046 -0.023 0.030 0.024 -0.033
+[16,320 numbers left out]
 
-b1 2.547 -5.594 -4.625 8.375 3.641 -5.031 -5.062 -1.078 -13.062 -5.438 -4.812 6.438 -4.938 7.594 -6.062 -3.234
-b2 0.258 -2.031 -2.125 -0.566 -2.609 -2.250 -1.805 -2.984 -6.594 -0.660 -1.781 -0.914 -1.648 -1.453 -1.898 -2.609</pre>
+dt_bias (layer 0 linear-attention, model.language_model.layers.0.linear_attn.dt_bias), shape 16:
+2.547 -5.594 -4.625 8.375 3.641 -5.031 -5.062 -1.078 -13.062 -5.438 -4.812 6.438 -4.938 7.594 -6.062 -3.234
+
+A_log (layer 0 linear-attention, model.language_model.layers.0.linear_attn.A_log), shape 16:
+0.258 -2.031 -2.125 -0.566 -2.609 -2.250 -1.805 -2.984 -6.594 -0.660 -1.781 -0.914 -1.648 -1.453 -1.898 -2.609</pre>
       </section>
 
       <section class="out">
         <h2>Out</h2>
-        <blockquote>I can’t determine improved weights from these tensors alone. They produce attention gates, not physical-state outputs; the encoding of F, m, x, v, dt in h and the downstream computation are unspecified. Without the rest of the model and evaluation data, rewriting these weights would be arbitrary, with no basis for claiming a better Euler update.</blockquote>
+        <blockquote>I can’t reliably edit these weights to improve Euler-step predictions from the tensors alone. No training examples, loss gradients, or evaluation results connect specific gate changes to the desired arithmetic; returning altered tensors would be an unvalidated guess, not a demonstrated improvement.</blockquote>
         <p>
-          Finish reason stop, 335 completion tokens. No <span class="formula">W1 row</span> line.
+          Finish reason stop, 136 completion tokens. No tensor header and no weight line.
           The reply did not parse. No number was changed, and nothing was loaded back into Qwen.
         </p>
 
