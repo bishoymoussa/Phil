@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Astra edits Qwen weights</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,560;1,6..72,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper: #fbfbfa;
+      --ink: #1a1916;
+      --muted: #5e5a54;
+      --accent: #8f2d2d;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--paper); }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: "Newsreader", "Iowan Old Style", Palatino, "Palatino Linotype", serif;
+      font-size: 1.08rem;
+      line-height: 1.45;
+    }
+    .page {
+      max-width: 68rem;
+      margin: 0 auto;
+      padding: 2.4rem 1.4rem 3.5rem;
+    }
+    a { color: var(--accent); text-underline-offset: 0.15em; }
+    .kicker {
+      margin: 0 0 0.7rem;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    h1 {
+      margin: 0;
+      font-weight: 560;
+      font-size: clamp(2rem, 4vw, 2.75rem);
+      letter-spacing: -0.025em;
+      line-height: 1.05;
+    }
+    .sub {
+      margin: 0.7rem 0 0;
+      max-width: 38rem;
+      font-size: 1.15rem;
+    }
+    .sub em { font-style: italic; }
+    hr {
+      border: 0;
+      border-top: 1px solid var(--ink);
+      margin: 1.5rem 0 1.6rem;
+    }
+    .sheet {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2.4rem;
+      align-items: start;
+    }
+    .out {
+      border-left: 1px solid var(--ink);
+      padding-left: 2.4rem;
+    }
+    h2 {
+      margin: 0 0 0.7rem;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-weight: 500;
+      font-size: 0.78rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    p { margin: 0 0 0.9rem; }
+    .arch { margin-bottom: 1.1rem; }
+    .formula {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.78rem;
+      line-height: 1.55;
+      margin: 0.4rem 0 0;
+    }
+    pre {
+      margin: 0 0 0.85rem;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.72rem;
+      line-height: 1.55;
+      white-space: pre;
+      overflow-x: auto;
+    }
+    .label {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.68rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0.85rem 0 0.2rem;
+    }
+    blockquote {
+      margin: 0 0 0.9rem;
+      padding: 0;
+      font-style: italic;
+    }
+    .counts {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.75rem;
+      line-height: 1.6;
+      color: var(--ink);
+    }
+    .io {
+      margin-top: 1.2rem;
+    }
+    .pair {
+      display: grid;
+      grid-template-columns: 7.5rem 1fr;
+      gap: 0.35rem 0.8rem;
+      margin: 0.3rem 0 0.8rem;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.78rem;
+      line-height: 1.45;
+    }
+    .pair span:first-child { color: var(--muted); }
+    .metric { margin-top: 0.2rem; }
+    .foot {
+      margin-top: 2rem;
+      padding-top: 0.8rem;
+      border-top: 1px solid var(--ink);
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    @media (max-width: 800px) {
+      .page { padding-top: 1.6rem; }
+      .sheet { grid-template-columns: 1fr; gap: 1.4rem; }
+      .out {
+        border-left: 0;
+        border-top: 1px solid var(--ink);
+        padding-left: 0;
+        padding-top: 1.3rem;
+      }
+      .pair { grid-template-columns: 6.2rem 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <p class="kicker">PhiLLM · Qwen3.5-2B · openai/gpt-6-astra-pro</p>
+    <h1>Astra edits Qwen weights</h1>
+    <p class="sub">Text in, text out, no tools. The 64-coordinate crop came back <em>unchanged</em>.</p>
+    <hr />
+
+    <div class="sheet">
+      <section class="in">
+        <h2>In</h2>
+        <p class="arch">
+          The weights are a Ridge readout on frozen Qwen3.5-2B last-token states.
+          Only 64 hidden coordinates are kept, the columns with the largest absolute coefficient mass
+          (8.3% of the total). The forward that was scored is
+        </p>
+        <p class="formula">h64 = h[indices]<br />z = (h64 − mean) / scale<br />[x′, v′] = z @ coef.T + intercept</p>
+        <p>
+          Row 0 of <span class="formula">coef</span> is x′. Row 1 is v′.
+          The law those outputs were asked to match is one Euler step,
+          a = F/m, x′ = x + v dt, v′ = v + a dt.
+          A crop of <span class="formula">layers.3.self_attn.k_proj.lora_B</span>
+          was in the same listing and was not loaded into Qwen.
+        </p>
+
+        <p class="label">Shapes sent in the crop</p>
+        <p class="counts">
+          coef (2, 64) · 128 numbers · 4 decimals<br />
+          intercept (2,) · 2<br />
+          scaler mean (64,) · scaler scale (64,) · 128<br />
+          LoRA-B rows 0:64 · (64, 16) · 1,024 numbers · 6 decimals<br />
+          1,282 numbers in all
+        </p>
+
+        <p class="label">coef, first and last 16 of each row</p>
+        <p class="counts">Middle 32 columns of each row were sent and are omitted here.</p>
+        <pre>row 0  x′  cols 0–15
+-0.3879 -0.8957 -0.9206 -0.9593  1.5951 -1.0374  0.9599 -0.6523
+-0.9206  0.5171  1.0552 -1.0131  0.0923 -0.6677  0.5725  0.6350
+
+row 0  x′  cols 48–63
+-0.7292 -0.5117  0.5567  0.9566  1.0608  0.4403 -1.0792  0.5536
+ 0.6503  0.2520 -0.8229 -0.8035  0.7022  1.2303  1.3177 -0.5179
+
+row 1  v′  cols 0–15
+-2.1815 -2.6557 -1.8083  1.3384  2.0026 -1.0504  1.4314 -1.5012
+-1.2615 -1.6213  1.0660 -1.0499  2.3227 -1.5593  1.5239  1.5567
+
+row 1  v′  cols 48–63
+-1.3296 -2.2019  1.5242  1.4993  1.7371  1.6818 -2.1331 -1.5151
+ 1.5534 -2.0089 -2.0313 -1.5682  1.6871  1.3002  0.8691 -1.6544
+
+intercept
+-0.0086  0.1468</pre>
+
+        <p class="label">Call that was refused</p>
+        <p>
+          Before the crop, the full head went out as text:
+          coef (2, 2048), intercept (2,), scaler mean and scale (2048,),
+          and LoRA-B (512, 16). That prompt was about 252,825 tokens.
+          Astra was asked to write the weights back. It had no tools.
+        </p>
+      </section>
+
+      <section class="out">
+        <h2>Out</h2>
+        <p class="label">Full dump</p>
+        <blockquote>I can’t reliably improve these weights without hidden-state examples and target outputs, and the full listing exceeds my response limit.</blockquote>
+        <p>
+          Finish reason stop, 418 completion tokens. No array header.
+          The reply did not parse, nothing was loaded, and Qwen was not run again.
+        </p>
+
+        <p class="label">64-d return</p>
+        <p>
+          The crop did parse: coef, intercept, both scalers, and the LoRA-B rows.
+          Every returned number matched the listing that was sent.
+          Max absolute difference is 0 on all 1,282 entries.
+          Astra copied the weights. It did not change one, and the copy was not written into the adapter.
+        </p>
+
+        <div class="io">
+          <p class="label">One physical next state</p>
+          <p>
+            First item of the scored simple-1D slice
+            (<span class="formula">T1_c93a1731ee56d3d3</span>, n = 50).
+            The head does not take x and v as inputs. It reads the last-token state of this prompt,
+            keeps the same 64 coordinates, and emits (x′, v′).
+          </p>
+          <div class="pair">
+            <span>state</span>
+            <span>Δt = 0.1 s, after 3 steps<br />m = 1.194 kg, x = −0.1574 m<br />v = −770.3 cm/s, F = 12.31 N</span>
+            <span>predicted</span>
+            <span>x′ = −3.2797 m<br />v′ = −0.6818 m/s</span>
+            <span>simulator</span>
+            <span>x′ = −2.1593 m<br />v′ = −4.6120 m/s</span>
+          </div>
+          <p class="metric">
+            On that crop, simple 1D T1, n = 50: exact <strong>0%</strong>,
+            position / velocity MAE <strong>5.50 / 15.45</strong>.
+            ood_mag exact <strong>0%</strong>, MAE <strong>11.83 / 35.28</strong>.
+            Same scores as the unedited crop.
+            Shuffle and random were also 0% exact; their ID position MAE was worse
+            (13.90 and 7.60), and their ID velocity MAE was not (9.87 and 11.73).
+          </p>
+          <p>
+            The full 2048-d head, which was not returned, is 0% exact on the same ID slice
+            with MAE 1.53 / 2.63. Closer, and still not an exact next state.
+          </p>
+          <p>
+            The language-model baseline stays Qwen3.5-4B LoRA:
+            <strong>42% ID / 0% OOD</strong>.
+            This copy does not replace it.
+            FREIA is a different object, frozen closed-form law tensors and a 100% upper bound, not a Qwen edit.
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <p class="foot">
+      <a href="index.html">PhiLLM results</a>
+      · numbers from the crop listing and the scored simple-1D slice
+    </p>
+  </div>
+</body>
+</html>
