@@ -124,6 +124,25 @@
     }
     .pair span:first-child { color: var(--muted); }
     .metric { margin-top: 0.2rem; }
+    .wline { margin: 0.45rem 0 0.15rem; }
+    .wlabel {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.72rem;
+      font-weight: 500;
+    }
+    .wvals {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.72rem;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+    .omit {
+      display: inline-block;
+      margin: 0.35rem 0 0.15rem;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
     .foot {
       margin-top: 2rem;
       padding-top: 0.8rem;
@@ -146,117 +165,107 @@
 </head>
 <body>
   <div class="page">
-    <p class="kicker">PhiLLM · Qwen3.5-2B · openai/gpt-6-astra-pro</p>
+    <p class="kicker">PhiLLM · Qwen3.5-0.8B · openai/gpt-6-astra-pro</p>
     <h1>Astra edits Qwen weights</h1>
-    <p class="sub">Text in, text out, no tools. The 64-coordinate crop came back <em>unchanged</em>.</p>
+    <p class="sub">Text in, text out, no tools. The reply is a refusal. No weight row came back.</p>
     <hr />
 
     <div class="sheet">
       <section class="in">
         <h2>In</h2>
         <p class="arch">
-          The weights are a Ridge readout on frozen Qwen3.5-2B last-token states.
-          Only 64 hidden coordinates are kept, the columns with the largest absolute coefficient mass
-          (8.3% of the total). The forward that was scored is
+          Real weights from Qwen3.5-0.8B, language-model layer 0, a linear-attention block.
+          The four tensors are complete. Row i is hidden coordinate i. Three decimals.
+          The forward pass of these tensors is
         </p>
-        <p class="formula">h64 = h[indices]<br />z = (h64 − mean) / scale<br />[x′, v′] = z @ coef.T + intercept</p>
+        <p class="formula">a = h @ W1<br />b = h @ W2<br />beta = sigmoid(b)<br />g = −exp(b2) · softplus(a + b1)</p>
         <p>
-          Row 0 of <span class="formula">coef</span> is x′. Row 1 is v′.
-          The law those outputs were asked to match is one Euler step,
-          a = F/m, x′ = x + v dt, v′ = v + a dt.
-          A crop of <span class="formula">layers.3.self_attn.k_proj.lora_B</span>
-          was in the same listing and was not loaded into Qwen.
+          W1 is <span class="formula">in_proj_a</span> (1024 × 16).
+          W2 is <span class="formula">in_proj_b</span>.
+          b1 is <span class="formula">dt_bias</span>.
+          b2 is <span class="formula">A_log</span>.
+          32,800 numbers. The rest of the model was not in the prompt.
+          Astra was asked to rewrite every row so the network follows
+          a = F/m, x′ = x + vΔt, v′ = v + aΔt, and to output only the weight rows.
+          No tools.
         </p>
 
-        <p class="label">Shapes sent in the crop</p>
-        <p class="counts">
-          coef (2, 64) · 128 numbers · 4 decimals<br />
-          intercept (2,) · 2<br />
-          scaler mean (64,) · scaler scale (64,) · 128<br />
-          LoRA-B rows 0:64 · (64, 16) · 1,024 numbers · 6 decimals<br />
-          1,282 numbers in all
-        </p>
+        <p class="label">W1 row 0</p>
+        <p class="wvals">-0.023 -0.025 -0.018 0.058 -0.012 -0.025 -0.023 -0.035 0.007 -0.022 -0.020 0.034 -0.016 0.103 -0.027 -0.028</p>
+        <p class="omit">[32 numbers left out]</p>
+        <p class="label">W1 row 3</p>
+        <p class="wvals">0.079 -0.011 -0.016 -0.032 -0.105 -0.004 -0.068 -0.048 -0.014 -0.125 -0.058 -0.053 0.029 -0.036 0.011 -0.017</p>
+        <p class="omit">[64 numbers left out]</p>
+        <p class="label">W1 row 8</p>
+        <p class="wvals">-0.012 -0.006 -0.019 0.046 0.017 0.027 -0.007 -0.004 -0.015 -0.005 0.011 0.042 -0.033 0.066 -0.006 -0.009</p>
+        <p class="omit">[848 numbers left out]</p>
+        <p class="label">W1 row 62</p>
+        <p class="wvals">0.054 -0.126 -0.055 0.006 -0.004 -0.059 -0.031 -0.034 -0.011 -0.026 -0.022 0.010 -0.053 0.023 -0.097 -0.030</p>
+        <p class="omit">[1,504 numbers left out]</p>
+        <p class="label">W1 row 157</p>
+        <p class="wvals">0.058 0.032 0.015 0.008 0.008 0.033 -0.010 0.031 0.004 0.017 -0.032 0.053 0.033 0.037 0.046 -0.005</p>
+        <p class="omit">[13,840 numbers left out]</p>
+        <p class="label">W1 row 1023</p>
+        <p class="wvals">0.024 0.028 -0.014 0.027 -0.038 0.043 0.028 -0.030 -0.011 -0.015 0.060 0.030 0.015 0.022 0.044 0.004</p>
 
-        <p class="label">coef, first and last 16 of each row</p>
-        <p class="counts">Middle 32 columns of each row were sent and are omitted here.</p>
-        <pre>row 0  x′  cols 0–15
--0.3879 -0.8957 -0.9206 -0.9593  1.5951 -1.0374  0.9599 -0.6523
--0.9206  0.5171  1.0552 -1.0131  0.0923 -0.6677  0.5725  0.6350
+        <p class="label">W2 row 0</p>
+        <p class="wvals">0.011 0.057 0.077 0.093 0.024 0.006 -0.001 0.061 -0.004 0.036 0.031 -0.010 0.068 0.030 -0.002 0.045</p>
+        <p class="omit">[32 numbers left out]</p>
+        <p class="label">W2 row 3</p>
+        <p class="wvals">0.014 -0.089 -0.036 -0.024 -0.006 -0.026 -0.012 -0.066 -0.010 -0.039 -0.007 0.046 -0.023 0.030 0.024 -0.033</p>
+        <p class="omit">[64 numbers left out]</p>
+        <p class="label">W2 row 8</p>
+        <p class="wvals">-0.004 0.003 -0.013 -0.067 -0.003 0.018 0.022 -0.015 0.035 0.012 0.021 -0.013 -0.003 -0.024 0.058 0.002</p>
+        <p class="omit">[848 numbers left out]</p>
+        <p class="label">W2 row 62</p>
+        <p class="wvals">-0.032 0.004 -0.017 -0.014 -0.007 -0.009 0.006 -0.000 -0.011 -0.017 -0.023 -0.029 -0.022 -0.019 -0.016 -0.020</p>
+        <p class="omit">[1,504 numbers left out]</p>
+        <p class="label">W2 row 157</p>
+        <p class="wvals">-0.034 -0.014 -0.008 -0.017 -0.036 0.009 0.014 -0.031 0.015 -0.014 0.023 -0.030 -0.005 -0.045 0.028 -0.007</p>
+        <p class="omit">[13,840 numbers left out]</p>
+        <p class="label">W2 row 1023</p>
+        <p class="wvals">0.010 -0.015 -0.003 -0.034 0.000 -0.003 0.002 -0.014 -0.004 -0.015 -0.010 0.010 -0.008 -0.010 -0.011 -0.002</p>
 
-row 0  x′  cols 48–63
--0.7292 -0.5117  0.5567  0.9566  1.0608  0.4403 -1.0792  0.5536
- 0.6503  0.2520 -0.8229 -0.8035  0.7022  1.2303  1.3177 -0.5179
-
-row 1  v′  cols 0–15
--2.1815 -2.6557 -1.8083  1.3384  2.0026 -1.0504  1.4314 -1.5012
--1.2615 -1.6213  1.0660 -1.0499  2.3227 -1.5593  1.5239  1.5567
-
-row 1  v′  cols 48–63
--1.3296 -2.2019  1.5242  1.4993  1.7371  1.6818 -2.1331 -1.5151
- 1.5534 -2.0089 -2.0313 -1.5682  1.6871  1.3002  0.8691 -1.6544
-
-intercept
--0.0086  0.1468</pre>
-
-        <p class="label">Call that was refused</p>
-        <p>
-          Before the crop, the full head went out as text:
-          coef (2, 2048), intercept (2,), scaler mean and scale (2048,),
-          and LoRA-B (512, 16). That prompt was about 252,825 tokens.
-          Astra was asked to write the weights back. It had no tools.
-        </p>
+        <p class="label">b1</p>
+        <p class="wvals">2.547 -5.594 -4.625 8.375 3.641 -5.031 -5.062 -1.078 -13.062 -5.438 -4.812 6.438 -4.938 7.594 -6.062 -3.234</p>
+        <p class="label">b2</p>
+        <p class="wvals">0.258 -2.031 -2.125 -0.566 -2.609 -2.250 -1.805 -2.984 -6.594 -0.660 -1.781 -0.914 -1.648 -1.453 -1.898 -2.609</p>
       </section>
 
       <section class="out">
         <h2>Out</h2>
-        <p class="label">Full dump</p>
-        <blockquote>I can’t reliably improve these weights without hidden-state examples and target outputs, and the full listing exceeds my response limit.</blockquote>
+        <blockquote>I can’t determine improved weights from these tensors alone. They produce attention gates, not physical-state outputs; the encoding of F, m, x, v, dt in h and the downstream computation are unspecified. Without the rest of the model and evaluation data, rewriting these weights would be arbitrary, with no basis for claiming a better Euler update.</blockquote>
         <p>
-          Finish reason stop, 418 completion tokens. No array header.
-          The reply did not parse, nothing was loaded, and Qwen was not run again.
-        </p>
-
-        <p class="label">64-d return</p>
-        <p>
-          The crop did parse: coef, intercept, both scalers, and the LoRA-B rows.
-          Every returned number matched the listing that was sent.
-          Max absolute difference is 0 on all 1,282 entries.
-          Astra copied the weights. It did not change one, and the copy was not written into the adapter.
+          Finish reason stop, 335 completion tokens. No <span class="formula">W1 row</span> line.
+          The reply did not parse. No number was changed, and nothing was loaded back into Qwen.
         </p>
 
         <div class="io">
           <p class="label">One physical next state</p>
           <p>
-            First item of the scored simple-1D slice
+            First scored item
             (<span class="formula">T1_c93a1731ee56d3d3</span>, n = 50).
-            The head does not take x and v as inputs. It reads the last-token state of this prompt,
-            keeps the same 64 coordinates, and emits (x′, v′).
+            The forward pass is the 0.8B model with the four tensors above at the 3 decimals that were sent.
+            Astra’s text was not substituted in.
           </p>
           <div class="pair">
             <span>state</span>
             <span>Δt = 0.1 s, after 3 steps<br />m = 1.194 kg, x = −0.1574 m<br />v = −770.3 cm/s, F = 12.31 N</span>
             <span>predicted</span>
-            <span>x′ = −3.2797 m<br />v′ = −0.6818 m/s</span>
+            <span>position −0.1574<br />velocity −770.3</span>
             <span>simulator</span>
             <span>x′ = −2.1593 m<br />v′ = −4.6120 m/s</span>
           </div>
           <p class="metric">
-            On that crop, simple 1D T1, n = 50: exact <strong>0%</strong>,
-            position / velocity MAE <strong>5.50 / 15.45</strong>.
-            ood_mag exact <strong>0%</strong>, MAE <strong>11.83 / 35.28</strong>.
-            Same scores as the unedited crop.
-            Shuffle and random were also 0% exact; their ID position MAE was worse
-            (13.90 and 7.60), and their ID velocity MAE was not (9.87 and 11.73).
-          </p>
-          <p>
-            The full 2048-d head, which was not returned, is 0% exact on the same ID slice
-            with MAE 1.53 / 2.63. Closer, and still not an exact next state.
+            On that unedited listing, ID n = 50: exact <strong>8%</strong>,
+            position / velocity MAE <strong>20.01 / 153.04</strong>.
+            ood_mag exact <strong>0%</strong>, MAE <strong>31.99 / 812.38</strong>.
           </p>
           <p>
             The language-model baseline stays Qwen3.5-4B LoRA:
             <strong>42% ID / 0% OOD</strong>.
-            This copy does not replace it.
-            FREIA is a different object, frozen closed-form law tensors and a 100% upper bound, not a Qwen edit.
+            This refusal does not replace it.
+            An earlier 64-d crop of the 2B head came back as an exact copy. That attempt is a different listing.
           </p>
         </div>
       </section>
@@ -264,7 +273,7 @@ intercept
 
     <p class="foot">
       <a href="index.html">PhiLLM results</a>
-      · numbers from the crop listing and the scored simple-1D slice
+      · numbers from the layer-0 listing and the scored 0.8B forward pass
     </p>
   </div>
 </body>
