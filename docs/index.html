@@ -165,6 +165,31 @@
       height: auto;
       display: block;
     }
+    .sample {
+      display: grid;
+      grid-template-columns: 1fr 1.15fr;
+      gap: 1rem;
+      align-items: stretch;
+      margin-top: 0.8rem;
+    }
+    .prompt {
+      margin: 0;
+      white-space: pre-wrap;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      padding: 1rem 1.05rem;
+      border: 1px solid var(--line);
+      background: rgba(7, 20, 26, 0.45);
+    }
+    .stage {
+      border: 1px solid var(--line);
+      background: #07141a;
+      padding: 0.4rem;
+    }
+    .stage svg { width: 100%; height: auto; display: block; }
+    @media (max-width: 800px) {
+      .sample { grid-template-columns: 1fr; }
+    }
     .method-figure figcaption {
       font-size: 0.88rem;
       color: var(--muted);
@@ -235,8 +260,65 @@
         Then by a linear probe on a hidden state: can acceleration, next velocity, and momentum be read out?
       </p>
       <p>
-        Train is 50,000 problems. Validation is 1,000, and only used to choose the checkpoint.
-        Test is the score. The simulator, given the same problems, scores 100%.
+      Train is 50,000 problems. Validation is 1,000, and only used to choose the checkpoint.
+      Test is the score. The simulator, given the same problems, scores 100%.
+    </p>
+    </section>
+
+    <section id="sample">
+      <h2>One problem, as the model sees it</h2>
+      <p>
+        Two disks in a box. The text on the left is the training example. The picture is the same example, played by the simulator. Disks are 5 cm across and bounce elastically. Here they never meet.
+      </p>
+      <div class="sample">
+        <pre class="prompt">Here is a Newtonian point-mass scene.
+Time step Δt = 0.08 s. Predict the state after 16 steps.
+Object a has mass 1 kg, position [-1.15, 0.15] m,
+velocity [1.15, 0.35] m/s, and force [0, -0.55] N.
+Object b has mass 1400 g, position [0.95, -0.25] m,
+velocity [-0.55, 0.45] m/s, and force [0.25, 0] N.
+Walls at [-1.7, 1.7, -1.15, 1.15].
+Objects collide elastically when they meet.
+Return JSON with keys objects
+(list of {id, position, velocity}), using SI units.</pre>
+        <div class="stage" aria-label="Two disks moving in a box for 1.28 seconds">
+          <svg viewBox="0 0 680 460" role="img">
+            <rect x="8" y="8" width="664" height="444" fill="none" stroke="#d4a35c" stroke-width="2"/>
+            <circle r="18" fill="#e8f1f4">
+              <animate attributeName="cx" dur="4.2s" repeatCount="indefinite"
+                values="110;128;147;165;184;202;220;239;257;276;294;312;331;349;368;386;404"/>
+              <animate attributeName="cy" dur="4.2s" repeatCount="indefinite"
+                values="200;194;190;185;182;179;177;176;175;175;176;177;179;182;186;190;195"/>
+            </circle>
+            <circle r="18" fill="#d4a35c">
+              <animate attributeName="cx" dur="4.2s" repeatCount="indefinite"
+                values="530;521;513;504;496;488;481;473;466;459;452;446;439;433;428;422;417"/>
+              <animate attributeName="cy" dur="4.2s" repeatCount="indefinite"
+                values="280;273;266;258;251;244;237;230;222;215;208;201;194;186;179;172;165"/>
+            </circle>
+            <text x="24" y="36" fill="#9db4bd" font-size="18" font-family="Source Sans 3, sans-serif">a light · b gold · 0 → 1.28 s</text>
+          </svg>
+        </div>
+      </div>
+      <p class="note">
+        The simulator’s answer, the gold label:
+        <code>a</code> ends at position [0.322, 0.176] m, velocity [1.15, −0.354] m/s.
+        <code>b</code> ends at [0.383, 0.326] m, velocity [−0.321, 0.45] m/s.
+      </p>
+    </section>
+
+    <section id="exact">
+      <h2>What “exact” means</h2>
+      <p>
+        We read the first JSON object in the model’s reply. It must name the same objects as the gold answer.
+        Then every position and every velocity number has to be close: within 5% of the gold value, or within 0.001 when the gold value is near zero.
+        One number outside that window makes the whole answer wrong. The 8% and 38% are the share of test problems that pass this check.
+        Position error is separate: the average distance, in meters, between the predicted coordinates and the gold ones.
+      </p>
+      <p>
+        On the scene above, gold <em>x</em> for <code>a</code> is 0.322 m.
+        A reply of 0.330 m is 2.5% off, so that number counts.
+        A reply of 0.400 m is 24% off, so the whole answer is wrong.
       </p>
     </section>
 
@@ -286,7 +368,7 @@
       </table>
       <p class="note">
         After LoRA, a probe reads momentum at R² <strong style="color:var(--ink)">0.56</strong> (was 0.19) and next-step velocity at <strong style="color:var(--ink)">0.51</strong> (was 0.23).
-        Astra’s edit of the 0.8B model is one Python <code>save_edit</code> over 36 columns of each MLP down-projection. The test answers do not change.
+        Astra’s first edit scaled whole columns, and the kernel refused it. Shown the example above, it tried again and the kernel accepted a smaller edit: 256 entries in each of layers 8–15. All 50 test answers are still identical to the unedited model, so the score stays 8% and the position error stays 20.0.
         <a href="astra-io.html">Input and output</a>.
       </p>
     </section>

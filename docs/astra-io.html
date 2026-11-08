@@ -136,7 +136,7 @@
   <div class="page">
     <p class="kicker">PhiLLM · Qwen3.5-0.8B · openai/gpt-6-astra</p>
     <h1>Astra’s edit did not move the score</h1>
-    <p class="sub">Astra edited Qwen3.5-0.8B through a Python kernel. On the test set the exact-match score stays 8% (4/50), the same as before the edit.</p>
+    <p class="sub">Two tries. The first scaled whole columns and the kernel refused it. The second, shown this page’s kind of problem in the prompt, changed 256 entries in layers 8–15 and was accepted. All 50 test answers stayed identical, so exact match stays 8%.</p>
     <hr />
 
     <div class="sheet">
@@ -243,7 +243,7 @@ for i in range(24):
           </tbody>
         </table>
         <p>
-          The 50 test answers match before and after the edit.
+          The 50 test answers match before and after both edits. The accepted edit changes 2,048 numbers by at most 0.0037. That is not enough to change a single generated token.
         </p>
       </section>
     </div>
