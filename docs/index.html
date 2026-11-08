@@ -322,6 +322,51 @@ Return JSON with keys objects
       </p>
     </section>
 
+    <section id="qualitative">
+      <h2>One right, one wrong</h2>
+      <p>Both are from Qwen3.5-2B after LoRA, on the test set. The disk is the simulator. The gold mark is where it should stop. The model’s mark is what it wrote.</p>
+      <div class="sample">
+        <article>
+          <h3 style="font-family:Fraunces,serif;font-weight:500;color:var(--good)">Right</h3>
+          <pre class="prompt">Time step Δt = 0.2 s. Predict the state after 1 step.
+Object o0 has mass 6.533 kg, position 2.441 m,
+velocity 2.159 m/s, and constant force 11.93 N.</pre>
+          <div class="stage" aria-label="A mass sliding from 2.44 m to 2.87 m">
+            <svg viewBox="0 0 520 92">
+              <line x1="36" y1="46" x2="484" y2="46" stroke="#9db4bd" stroke-width="2"/>
+              <circle cy="46" r="14" fill="#e8f1f4">
+                <animate attributeName="cx" dur="2.4s" repeatCount="indefinite" values="158;369;369"/>
+              </circle>
+              <circle cx="369" cy="46" r="6" fill="none" stroke="#5cb87a" stroke-width="2"/>
+              <text x="36" y="22" fill="#9db4bd" font-size="14" font-family="Source Sans 3, sans-serif">start 2.44 m</text>
+              <text x="300" y="22" fill="#5cb87a" font-size="14" font-family="Source Sans 3, sans-serif">gold and model 2.87 m</text>
+            </svg>
+          </div>
+          <p class="note">Gold velocity 2.524 m/s. The model wrote 2.519 m/s. Both numbers are inside 5%, so this counts as exact.</p>
+        </article>
+        <article>
+          <h3 style="font-family:Fraunces,serif;font-weight:500;color:var(--bad)">Wrong</h3>
+          <pre class="prompt">Time step Δt = 0.1 s. Predict the state after 3 steps.
+Object o0 has mass 1.194 kg, position −0.1574 m,
+velocity −770.3 cm/s, and constant force 12.31 N.</pre>
+          <div class="stage" aria-label="A mass moving left. The model stops too far.">
+            <svg viewBox="0 0 520 92">
+              <line x1="36" y1="46" x2="484" y2="46" stroke="#9db4bd" stroke-width="2"/>
+              <circle cy="46" r="14" fill="#e8f1f4">
+                <animate attributeName="cx" dur="2.8s" repeatCount="indefinite" values="445;339;232;169;169"/>
+              </circle>
+              <circle cx="169" cy="46" r="6" fill="none" stroke="#5cb87a" stroke-width="2"/>
+              <circle cx="67" cy="46" r="6" fill="#d45c7a"/>
+              <text x="36" y="22" fill="#d45c7a" font-size="14" font-family="Source Sans 3, sans-serif">model −2.90 m</text>
+              <text x="150" y="78" fill="#5cb87a" font-size="14" font-family="Source Sans 3, sans-serif">gold −2.16 m</text>
+              <text x="400" y="78" fill="#9db4bd" font-size="14" font-family="Source Sans 3, sans-serif">start</text>
+            </svg>
+          </div>
+          <p class="note">The prompt gives velocity in cm/s. Gold is −2.16 m and −4.61 m/s. The model wrote −2.90 m, which is 34% off, so the answer is wrong.</p>
+        </article>
+      </div>
+    </section>
+
     <section id="results">
       <h2>Test set</h2>
       <table class="results">
