@@ -183,79 +183,116 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="tag">Course project · Northeastern · Qwen3.5-2B</div>
+    <div class="tag">Midterm · Northeastern</div>
     <p class="brand">PhiLLM</p>
     <p class="takeaway">
-      Zero-shot Qwen3.5-2B mostly <em>cannot</em> predict Newtonian next states
-      (<strong style="color:var(--ink)">8% ID</strong> vs <strong style="color:var(--ink)">100% oracle</strong>).
-      LoRA SFT lifts ID to <strong style="color:var(--ink)">38%</strong> (MAE 13.5→0.82) but
-      <strong style="color:var(--ink)">LoRA OOD stays 0%</strong> on all four axes.
-      Probes: LoRA raises derived R² (momentum 0.19→0.56, v<sub>k</sub> 0.23→0.51) —
-      ID physics is more linearly readable, still not OOD-transferable (n=50/200).
-      Frozen-LLM + linear next-state head stays near chance on ID T1
-      (<strong style="color:var(--ink)">0–2%</strong> vs LoRA gen. <strong style="color:var(--ink)">38%</strong>).
-      FREIA is a weight-encoded Newtonian law module (closed-form tensors, shuffle control → 0%):
-      an oracle-style upper bound at <strong style="color:var(--ink)">100% exact ID T1</strong> (32/32) and
-      <strong style="color:var(--ink)">100% ood_mag</strong> (n=50) showing those equations can live in weights.
-      It does not change Qwen and does not replace the LoRA
-      <strong style="color:var(--ink)">42% ID / 0% OOD</strong> language-model result.
-      Astra scaled 36 columns on each of 24 MLP down projections of Qwen3.5-0.8B; ID stayed <strong style="color:var(--ink)">8%</strong> (4/50, MAE 20.01/153.04) and ood_mag stayed <strong style="color:var(--ink)">0/50</strong> (MAE 32.02/789.82 versus unedited 31.99/812.38), so this is not an improved physics model and it does not replace 4B LoRA at <strong style="color:var(--ink)">42% ID / 0% OOD</strong>.
+      Can a language model understand a simple physical step — by <strong style="color:var(--ink)">writing the next state</strong>,
+      or by <strong style="color:var(--ink)">carrying it in a hidden state</strong> a probe can read?
+      One dataset: train, validation, test. One comparison: Qwen3.5-2B before and after LoRA.
+      Then one Astra edit of Qwen3.5-0.8B.
     </p>
-    <div class="status-pill">Results · LoRA 2B 38% · 4B 42% · 9B 24% · 27B 20% · ZS 9B 10%</div>
+    <div class="status-pill">Test set · before LoRA 8% · after LoRA 38% · Astra 8% → 8%</div>
     <p>
-      PhiLLM asks whether open-weight LLMs hold a usable internal model of simple point-mass worlds —
-      ID vs OOD next-state prediction, linear probes for derived physics, probe-guided teaching,
-      selective simulator calls, and a weight-space reading pilot.
+      A point mass, a force, and one Euler step. The model reads the problem in words and answers with the next position and velocity.
+      We train a LoRA adapter on the training problems, pick the checkpoint on validation, and score exact match on the test set.
     </p>
     <div class="cta">
       <a class="btn" href="https://huggingface.co/spaces/bishoygaloaa/phillm-demo">Live 2D demo</a>
       <a class="btn ghost" href="https://github.com/bishoymoussa/Phil">GitHub</a>
       <a class="btn ghost" href="https://huggingface.co/datasets/bishoygaloaa/phillm-data">Dataset</a>
       <a class="btn ghost" href="https://huggingface.co/datasets/bishoygaloaa/phillm-results">Raw metrics</a>
-      <a class="btn ghost" href="https://huggingface.co/bishoygaloaa/phillm-freia">FREIA weights</a>
+      <a class="btn ghost" href="astra-io.html">Astra input / output</a>
     </div>
 
     <div class="callouts" aria-label="Key numbers">
       <div class="callout">
-        <div class="lbl">Oracle ID accuracy</div>
-        <div class="num good">100%</div>
-        <div class="lbl">exact simulator · n=2000</div>
-      </div>
-      <div class="callout">
-        <div class="lbl">Zero-shot ID accuracy</div>
+        <div class="lbl">Test · before LoRA</div>
         <div class="num bad">8%</div>
-        <div class="lbl">Qwen3.5-2B · n=50 · partial</div>
+        <div class="lbl">Qwen3.5-2B · n=50 · position error 13.5</div>
       </div>
       <div class="callout">
-        <div class="lbl">LoRA OOD (all axes)</div>
-        <div class="num bad">0%</div>
-        <div class="lbl">mag · hor · obj · col · n=50</div>
-      </div>
-      <div class="callout">
-        <div class="lbl">2B LoRA ID (post-SFT)</div>
+        <div class="lbl">Test · after LoRA</div>
         <div class="num">38%</div>
-        <div class="lbl">n=50 · was 8% zeroshot · MAE 0.82</div>
+        <div class="lbl">same model · position error 0.82</div>
       </div>
       <div class="callout">
-        <div class="lbl">4B LoRA (the LLM)</div>
-        <div class="num">42%</div>
-        <div class="lbl">best language-model ID · OOD exact 0% · n=50</div>
+        <div class="lbl">Probe · momentum R²</div>
+        <div class="num">0.56</div>
+        <div class="lbl">was 0.19 before LoRA</div>
       </div>
       <div class="callout">
-        <div class="lbl">FREIA law module (not Qwen)</div>
-        <div class="num good">100%</div>
-        <div class="lbl">ID T1 32/32 and ood_mag n=50 · mixed slice 64% (T2/T3 blank) · shuffle 0% · does not replace LoRA 42% / 0%</div>
+        <div class="lbl">Astra on 0.8B</div>
+        <div class="num">8% → 8%</div>
+        <div class="lbl">test exact match unchanged</div>
       </div>
     </div>
 
-    <section id="results">
-      <h2>Results <span class="badge partial">overnight</span></h2>
-      <p class="note">
-        One comparison table: <strong style="color:var(--ink)">model size × method × ID / OOD</strong>.
-        Metrics from Journey <code>preds/*.metrics.json</code> and
-        <a href="https://huggingface.co/datasets/bishoygaloaa/phillm-results">phillm-results</a>.
-        Size sweep complete: 4B LoRA best ID (42%); 9B/27B LoRA below 2B; OOD exact 0% at all sizes.
+    <section id="question">
+      <h2>The question</h2>
+      <p>
+        Can the model understand the Euler step? We answer that twice.
+        First by the tokens it writes: the next position and velocity.
+        Then by a linear probe on a hidden state: can acceleration, next velocity, and momentum be read out?
       </p>
+      <p>
+        Train is 50,000 problems. Validation is 1,000, and only used to choose the checkpoint.
+        Test is the score. The simulator, given the same problems, scores 100%.
+      </p>
+    </section>
+
+    <section id="results">
+      <h2>Test set</h2>
+      <table class="results">
+        <thead>
+          <tr>
+            <th>System</th>
+            <th>Test exact</th>
+            <th>Position error</th>
+            <th>n</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Simulator</td>
+            <td class="num">100%</td>
+            <td class="num">0</td>
+            <td class="num">2000</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-2B before LoRA</td>
+            <td class="num">8%</td>
+            <td class="num">13.5</td>
+            <td class="num">50</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-2B after LoRA</td>
+            <td class="num">38%</td>
+            <td class="num">0.82</td>
+            <td class="num">50</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-0.8B before Astra</td>
+            <td class="num">8%</td>
+            <td class="num">20.0</td>
+            <td class="num">50</td>
+          </tr>
+          <tr>
+            <td>Qwen3.5-0.8B after Astra</td>
+            <td class="num">8%</td>
+            <td class="num">20.0</td>
+            <td class="num">50</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="note">
+        After LoRA, a probe reads momentum at R² <strong style="color:var(--ink)">0.56</strong> (was 0.19) and next-step velocity at <strong style="color:var(--ink)">0.51</strong> (was 0.23).
+        Astra’s edit of the 0.8B model is one Python <code>save_edit</code> over 36 columns of each MLP down-projection. The test answers do not change.
+        <a href="astra-io.html">Input and output</a>.
+      </p>
+    </section>
+
+    <details id="archive">
+      <summary style="cursor:pointer;color:var(--muted);margin:1.5rem 0 0.6rem;">Earlier runs, not in the midterm talk</summary>
 
       <h3 style="font-family:Fraunces,serif;font-weight:500;font-size:1.1rem;margin:1.2rem 0 0.2rem;">Size × method</h3>
       <table class="results">
@@ -415,11 +452,11 @@
         LoRA still cuts Pos MAE ~4–9× vs zeroshot. Probes: derived R² momentum <strong style="color:var(--ink)">0.19→0.56</strong>,
         v<sub>k</sub> <strong style="color:var(--ink)">0.23→0.51</strong>. Selective SFT did not learn usable &lt;sim&gt; calling overnight.
       </p>
-    </section>
+    </details>
 
     <section id="vignette">
       <h2>One problem, three answers</h2>
-      <p class="note">Figure-style vignette from ID test <code>T1_c93a1731ee56d3d3</code> (zeroshot Qwen3.5-2B).</p>
+      <p class="note">One test problem, <code>T1_c93a1731ee56d3d3</code>, answered by Qwen3.5-2B before LoRA.</p>
       <div class="vignette">
         <h3>Prompt (abridged)</h3>
         <pre>Δt = 0.1 s. Predict the state after 3 steps.
@@ -438,33 +475,26 @@ Return JSON {objects:[{id, position, velocity}]} in SI units.</pre>
     <section id="methods">
       <h2>Methods</h2>
       <figure class="method-figure">
-        <img src="figures/method.svg" alt="PhiLLM method figure: Newtonian simulator and ID/OOD tasks feed Qwen3.5-2B; H1 LoRA next-state prediction; H2 ridge probes on hidden states for stated vs derived physics" width="1000" height="420" />
+        <img src="figures/method.svg" alt="Simulator problems go to Qwen. One path writes the next state. One path is a linear probe on a hidden state." width="1000" height="420" />
         <figcaption>
           <strong style="color:var(--ink)">Figure 1.</strong>
-          Simulator &#8594; ID/OOD tasks &#8594; Qwen3.5-2B, then two paths:
-          <strong style="color:var(--ink)">H1</strong> LoRA for behavioral next-state prediction;
-          <strong style="color:var(--ink)">H2</strong> ridge probes on hidden states for stated
-          (<em>m, x₀, v₀, F</em>) vs derived (<em>a, xₖ, vₖ, p, KE</em>) quantities.
-          Optional probe-guided LoRA and selective <code>&lt;sim&gt;</code> calling (RQ3) build on the probe path.
+          The simulator writes the problems. Qwen reads them.
+          One path is the next state it generates. The other is a linear probe on a hidden state.
         </figcaption>
       </figure>
       <p>
-        Worlds are 1D/2D point masses under constant forces with elastic collisions and optional walls,
-        stepped with fixed-Δt Euler. Each item is a natural-language WorldSpec → JSON next-state target.
-        ID splits cover train/dev/test; OOD axes stretch magnitude, horizon, object count, and collisions.
-        Models: open-weight <code>Qwen/Qwen3.5-2B</code> zero-shot, then LoRA SFT on train (dev-only selection).
-        Probes read hidden states for derived quantities; RQ3 adds a costed <code>&lt;sim&gt;</code> tool policy;
-        RQ5 asks an LLM to name which law a tiny neural simulator encodes from its weights.
+        Train 50,000 · validation 1,000 · test 2,000. LoRA is fit on train and chosen on validation.
+        The test score is exact match of the written next state. The probe score is R² on momentum and next-step velocity.
+        Astra is a separate edit of Qwen3.5-0.8B, scored on the same kind of test problem.
       </p>
     </section>
 
     <section id="hypotheses">
-      <h2>Hypotheses</h2>
+      <h2>What we ask</h2>
       <ul>
-        <li><strong>H1 Prediction:</strong> Can the LLM predict full next states ID vs OOD?</li>
-        <li><strong>H2 Understanding:</strong> Are acceleration / future state / momentum / energy linearly decodable — and teachable via probes?</li>
-        <li><strong>RQ3:</strong> When should the agent call a physics simulator under an explicit call cost?</li>
-        <li><strong>RQ5:</strong> Can an LLM read which physical law a tiny neural simulator encodes from its weights?</li>
+        <li><strong>Written answer:</strong> does the model predict the next position and velocity?</li>
+        <li><strong>Hidden state:</strong> can a linear probe read acceleration, next velocity, and momentum?</li>
+        <li><strong>Astra:</strong> if a model edits the weights directly, does the test score move?</li>
       </ul>
     </section>
 
@@ -474,15 +504,15 @@ Return JSON {objects:[{id, position, velocity}]} in SI units.</pre>
       <div class="gif-row">
         <figure>
           <img src="gifs/id_simple.gif" alt="Simple ID 1D rollout" />
-          <figcaption>ID · simple 1D motion</figcaption>
+          <figcaption>Simple 1D motion</figcaption>
         </figure>
         <figure>
           <img src="gifs/id_test.gif" alt="ID test vignette trajectory" />
-          <figcaption>ID · vignette problem dynamics</figcaption>
+          <figcaption>A test-problem trajectory</figcaption>
         </figure>
         <figure>
           <img src="gifs/ood_mag.gif" alt="OOD magnitude rollout" />
-          <figcaption>OOD · extreme magnitudes</figcaption>
+          <figcaption>A larger force</figcaption>
         </figure>
         <figure>
           <img src="gifs/inspect_collision.gif" alt="Collision inspect rollout" />

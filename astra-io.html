@@ -136,7 +136,7 @@
   <div class="page">
     <p class="kicker">PhiLLM · Qwen3.5-0.8B · openai/gpt-6-astra</p>
     <h1>Astra’s edit did not move the score</h1>
-    <p class="sub">Astra scaled 36 columns on each of 24 MLP down projections of Qwen3.5-0.8B; ID stayed 8% (4/50, MAE 20.01/153.04) and ood_mag stayed 0/50 (MAE 32.02/789.82 versus unedited 31.99/812.38), so this is not an improved physics model and it does not replace 4B LoRA at 42% ID / 0% OOD.</p>
+    <p class="sub">Astra edited Qwen3.5-0.8B through a Python kernel. On the test set the exact-match score stays 8% (4/50), the same as before the edit.</p>
     <hr />
 
     <div class="sheet">
@@ -232,25 +232,18 @@ for i in range(24):
           Together that is 884,736 entries. The largest absolute change is about 0.0027.
         </p>
 
-        <p class="label">Scores, n = 50</p>
+        <p class="label">Test set, n = 50</p>
         <table>
           <thead>
-            <tr><th></th><th>Exact</th><th>Pos MAE</th><th>Vel MAE</th></tr>
+            <tr><th></th><th>Exact</th><th>Pos error</th><th>Vel error</th></tr>
           </thead>
           <tbody>
-            <tr><td>ID edited</td><td>8% (4/50)</td><td>20.01</td><td>153.04</td></tr>
-            <tr><td>ID unedited</td><td>8% (4/50)</td><td>20.01</td><td>153.04</td></tr>
-            <tr><td>ood_mag edited</td><td>0/50</td><td>32.02</td><td>789.82</td></tr>
-            <tr><td>ood_mag unedited</td><td>0/50</td><td>31.99</td><td>812.38</td></tr>
+            <tr><td>Before Astra</td><td>8% (4/50)</td><td>20.01</td><td>153.04</td></tr>
+            <tr><td>After Astra</td><td>8% (4/50)</td><td>20.01</td><td>153.04</td></tr>
           </tbody>
         </table>
         <p>
-          ID generations match on all 50 items. T1 is 0/32 on both.
-          Forty-nine of the fifty ood_mag strings match.
-          The one difference, <span class="counts">T1_218052e9b6bd28f2</span>, drops units and switches to scientific notation.
-          That parse is why position MAE moves from 31.99 to 32.02 and velocity MAE from 812.38 to 789.82.
-          Exact stays 0/50. This is not an improved physics model.
-          Qwen3.5-4B LoRA remains 42% ID / 0% OOD.
+          The 50 test answers match before and after the edit.
         </p>
       </section>
     </div>
